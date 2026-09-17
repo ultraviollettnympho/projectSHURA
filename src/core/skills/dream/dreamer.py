@@ -5,6 +5,14 @@ from typing import Any, Dict, List, Optional
 
 from src.core.skills.social.people import record_person
 from src.utils.logger import get_logger
+from src.core.dream.events import (
+    emit_dream_started,
+    emit_dream_snapshot_created,
+    emit_dream_reconciliation_started,
+    emit_dream_reconciliation_completed,
+    emit_dream_completed,
+    emit_dream_failed,
+)
 
 logger = get_logger("bea.skills.dream.dreamer")
 
@@ -25,9 +33,11 @@ class Dreamer:
 
     def __init__(self, *, llm, history_manager, roster, people, selflore, recent,
                  conversations_dir: str = "data/conversations",
-                 processed_path: str = "data/memory/dreamed.json"):
+                 processed_path: str = "data/memory/dreamed.json",
+                 event_manager=None):
         self.llm = llm
         self.history = history_manager
+        self.event_manager = event_manager
         self.roster = roster
         self.people = people
         self.selflore = selflore
@@ -58,8 +68,23 @@ class Dreamer:
         self.processed_path.write_text(json.dumps(sorted(done)), encoding="utf-8")
 
     async def run(self) -> Dict[str, Any]:
+        import uuid
+        run_id = f"dream-run-{str(uuid.uuid4())[:8]}"
+        if self.event_manager is not None:
+            try:
+                emit_dream_started(
+                    self.event_manager, run_id=run_id,
+                    payload={"commit_mode": "automatic", "max_sessions": 250}
+                )
+            except Exception:
+                pass
         """Consolidate every un-dreamed session except the active one."""
         if not self.llm:
+            if self.event_manager is not None:
+                try:
+                    emit_dream_failed(self.event_manager, run_id=run_id, payload={"reason": "no llm"})
+                except Exception:
+                    pass
             return {"ok": False, "error": "no llm"}
 
         done = self._processed()
@@ -80,11 +105,47 @@ class Dreamer:
                 self._mark_processed(sid)
                 continue
 
+            # Emit snapshot event when meaningful session material is found
+            if self.event_manager is not None:
+                try:
+                    emit_dream_snapshot_created(
+                        self.event_manager, run_id=run_id,
+                        snapshot_id=sid,
+                        payload={"session_id": sid, "message_count": len(messages)},
+                    )
+                except Exception:
+                    pass
+
             result = await self._dream_session(messages)
             if result:
+                if self.event_manager is not None:
+                    try:
+                        emit_dream_reconciliation_started(
+                            self.event_manager, run_id=run_id,
+                            payload={"session_id": sid},
+                        )
+                    except Exception:
+                        pass
                 self._apply(sid, result, summary)
+                if self.event_manager is not None:
+                    try:
+                        emit_dream_reconciliation_completed(
+                            self.event_manager, run_id=run_id,
+                            payload={"session_id": sid, "facts_applied": summary.get("self_facts", 0)},
+                        )
+                    except Exception:
+                        pass
             self._mark_processed(sid)
             summary["sessions"] += 1
+
+        if self.event_manager is not None:
+            try:
+                emit_dream_completed(
+                    self.event_manager, run_id=run_id,
+                    payload={"sessions_processed": summary.get("sessions", 0)},
+                )
+            except Exception:
+                pass
 
         return {"ok": True, **summary}
 

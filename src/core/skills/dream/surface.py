@@ -60,10 +60,12 @@ class DreamSkill(Skill):
         if not (social and llm and hm):
             logger.warning("DreamSkill: dreamer not fully wired (need social + llm + history).")
             return
+        event_mgr = getattr(self.context, "event_manager", None) if hasattr(self.context, "event_manager") else None
         self.dreamer = Dreamer(
             llm=llm, history_manager=hm,
             roster=social.roster, people=social.people,
             selflore=self.selflore, recent=self.recent,
+            event_manager=event_mgr,
         )
 
     # --- always-in-context --------------------------------------------------
