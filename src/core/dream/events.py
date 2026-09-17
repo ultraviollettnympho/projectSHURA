@@ -30,6 +30,17 @@ EVENT_DREAM_COMPLETED = "dream.completed"
 EVENT_DREAM_FAILED = "dream.failed"
 
 # ------------------------------------------------------------------
+# Memory consolidation event taxonomy (Phase 3)
+# ------------------------------------------------------------------
+EVENT_MEMORY_CONSOLIDATION_STARTED = "memory.consolidation_started"
+EVENT_MEMORY_REHEARSAL_STARTED = "memory.rehearsal_started"
+EVENT_MEMORY_REHEARSAL_COMPLETED = "memory.rehearsal_completed"
+EVENT_MEMORY_VALIDATED = "memory.consolidation_validated"
+EVENT_MEMORY_COMMITTED = "memory.consolidation_committed"
+EVENT_MEMORY_REJECTED = "memory.consolidation_rejected"
+EVENT_MEMORY_FAILED = "memory.consolidation_failed"
+
+# ------------------------------------------------------------------
 # Event emission helpers (minimal; requires an existing EventManager instance)
 # ------------------------------------------------------------------
 
@@ -151,5 +162,130 @@ def emit_dream_failed(
         parent_event_id=parent_event_id,
         severity=EventSeverity.ERROR.value,
         visibility=EventVisibility.UI.value,
+        payload=payload or {},
+    )
+
+
+# Memory consolidation event emission helpers (Phase 3)
+# ------------------------------------------------------------------
+
+def emit_memory_consolidation_started(
+    event_manager,
+    transaction_id: str,
+    run_id: str,
+    payload: Optional[Dict[str, Any]] = None,
+) -> Any:
+    return event_manager.publish(
+        category=EventCategory.MEMORY,
+        source="memory_consolidation",
+        message=f"Memory consolidation started: {transaction_id}",
+        event_type="memory.consolidation_started",
+        subsystem="memory",
+        run_id=run_id,
+        payload=payload or {},
+    )
+
+
+def emit_memory_rehearsal_started(
+    event_manager,
+    transaction_id: str,
+    run_id: str,
+    payload: Optional[Dict[str, Any]] = None,
+) -> Any:
+    return event_manager.publish(
+        category=EventCategory.MEMORY,
+        source="memory_consolidation",
+        message=f"Memory rehearsal started: {transaction_id}",
+        event_type="memory.rehearsal_started",
+        subsystem="memory",
+        run_id=run_id,
+        payload=payload or {},
+    )
+
+
+def emit_memory_rehearsal_completed(
+    event_manager,
+    transaction_id: str,
+    run_id: str,
+    payload: Optional[Dict[str, Any]] = None,
+) -> Any:
+    return event_manager.publish(
+        category=EventCategory.MEMORY,
+        source="memory_consolidation",
+        message=f"Memory rehearsal completed: {transaction_id}",
+        event_type="memory.rehearsal_completed",
+        subsystem="memory",
+        run_id=run_id,
+        payload=payload or {},
+    )
+
+
+def emit_memory_validated(
+    event_manager,
+    transaction_id: str,
+    run_id: str,
+    valid: bool = True,
+    payload: Optional[Dict[str, Any]] = None,
+) -> Any:
+    return event_manager.publish(
+        category=EventCategory.MEMORY,
+        source="memory_consolidation",
+        message=f"Memory consolidation validated: {transaction_id} (valid={valid})",
+        event_type="memory.consolidation_validated",
+        subsystem="memory",
+        run_id=run_id,
+        severity=EventSeverity.SUCCESS.value if valid else EventSeverity.WARNING.value,
+        visibility=EventVisibility.UI.value,
+        payload=payload or {},
+    )
+
+
+def emit_memory_committed(
+    event_manager,
+    transaction_id: str,
+    run_id: str,
+    payload: Optional[Dict[str, Any]] = None,
+) -> Any:
+    return event_manager.publish(
+        category=EventCategory.MEMORY,
+        source="memory_consolidation",
+        message=f"Memory consolidation committed: {transaction_id}",
+        event_type="memory.consolidation_committed",
+        subsystem="memory",
+        run_id=run_id,
+        payload=payload or {},
+    )
+
+
+def emit_memory_rejected(
+    event_manager,
+    transaction_id: str,
+    run_id: str,
+    payload: Optional[Dict[str, Any]] = None,
+) -> Any:
+    return event_manager.publish(
+        category=EventCategory.MEMORY,
+        source="memory_consolidation",
+        message=f"Memory consolidation rejected: {transaction_id}",
+        event_type="memory.consolidation_rejected",
+        subsystem="memory",
+        run_id=run_id,
+        payload=payload or {},
+    )
+
+
+def emit_memory_failed(
+    event_manager,
+    transaction_id: str,
+    run_id: str,
+    payload: Optional[Dict[str, Any]] = None,
+) -> Any:
+    return event_manager.publish(
+        category=EventCategory.MEMORY,
+        source="memory_consolidation",
+        message=f"Memory consolidation failed: {transaction_id}",
+        event_type="memory.consolidation_failed",
+        subsystem="memory",
+        run_id=run_id,
         payload=payload or {},
     )
