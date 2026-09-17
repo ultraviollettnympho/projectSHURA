@@ -160,6 +160,12 @@ class Consciousness:
                     logger.info(f"batch of {len(batch)} perception(s): "
                                 f"{', '.join(p.surface for p in batch)}")
 
+                self.events.publish(
+                    EventCategory.SYSTEM, "consciousness",
+                    f"Batch processed: {len(batch)} perceptions",
+                    event_type="lifecycle", subsystem="consciousness",
+                    payload={"batch_size": len(batch), "is_idle": is_idle},
+                )
                 t_ctx = time.perf_counter()
                 self.context[0] = await self._build_system_message(batch, is_idle=is_idle)
                 if not is_idle:
@@ -205,6 +211,28 @@ class Consciousness:
                 if not is_idle:
                     logger.info(f"turn done: {steps} llm call(s) in "
                                 f"{(time.perf_counter() - t_turn) * 1000:.0f}ms")
+
+                # Fallback: if the model answered with text but no speak tool was
+                # called, use that text as the spoken response for local/HTTP callers.
+                last = self.context[-1] if self.context else {}
+                if last.get("role") == "assistant":
+                    tool_calls = last.get("tool_calls") or []
+                    spoke = any(
+                        isinstance(tc, dict) and tc.get("function", {}).get("name") == "speak"
+                        for tc in tool_calls
+                    )
+                    text = (last.get("content") or "").strip()
+                    if text and not spoke and self._correlations:
+                        for cid in list(self._batch_correlations):
+                            c = self._correlations.get(cid)
+                            if c and not c["future"].done() and c["route"] != "discord":
+                                c["future"].set_result({"mood": "normal", "message": text})
+                                self._batch_correlations.remove(cid)
+                                asyncio.create_task(self._speak_local_safe("normal", text))
+                                self.history.add_message("assistant", text, mood="normal", source="consciousness")
+                                self.events.publish(EventCategory.OUTPUT, "consciousness", text,
+                                                       metadata={"mood": "normal"})
+
                 self._resolve_dangling_correlations()
                 self._trim()
             except asyncio.CancelledError:
@@ -275,7 +303,12 @@ class Consciousness:
         return self._tool_registry().schemas() or None
 
     async def _dispatch(self, call: ToolCall) -> str:
-        self.events.publish(EventCategory.TOOL, "consciousness", f"{call.name}({call.arguments})")
+        self.events.publish(
+            EventCategory.TOOL, "consciousness",
+            f"Tool call: {call.name}",
+            event_type="progress", subsystem="agent",
+            payload={"tool_name": call.name, "arguments": call.arguments},
+        )
         reg = self._tool_registry()
         tool = reg.get(call.name)
         if tool is None:

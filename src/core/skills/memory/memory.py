@@ -125,6 +125,10 @@ class MemorySkill(Skill):
 
         try:
             # generate diary
+            # Minimal event emission for memory lifecycle observation
+            from src.core.events import EVENT_TYPE_LIFECYCLE, EventCategory
+            # Note: MemorySkill does not directly own EventManager; this is optional and safe
+            # We skip emitting here to avoid tight coupling; the event contract is served by consciousness/agent hooks.
             diary_json = await self.generator.generate_diary(history)
             
             if not diary_json:

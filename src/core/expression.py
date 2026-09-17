@@ -157,6 +157,9 @@ class Expression:
 
                 self.event_manager.publish(
                     EventCategory.OUTPUT, "tts", f"Speaking: {message[:50]}...",
+                    event_type="state",
+                    subsystem="embodiment",
+                    payload={"device_id": self.config.audio_device_id, "mood": mood},
                     metadata={"device_id": self.config.audio_device_id},
                 )
 
