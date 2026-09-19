@@ -7,6 +7,15 @@ from typing import Any, Dict, List, Optional
 from src.core.agent.tools import Tool, ToolRegistry
 from src.core.agent.types import AssistantMessage, ToolCall
 from src.core.events import EventCategory
+from src.core.presence.events import (
+    AGENT_TURN_STARTED,
+    AGENT_TURN_COMPLETED,
+    AGENT_TURN_FAILED,
+    TOOL_STARTED,
+    TOOL_PROGRESS,
+    TOOL_COMPLETED,
+    TOOL_FAILED,
+)
 from src.core.perception.types import Perception, PerceptionKind
 from src.utils.prompts import compose
 from src.utils.logger import get_logger
@@ -156,6 +165,15 @@ class Consciousness:
                     continue
 
                 is_idle = bool(batch) and all(p.kind == PerceptionKind.IDLE for p in batch)
+                turn_run_id = str(uuid.uuid4())
+                self.events.publish(
+                    EventCategory.AGENT, "agent.core",
+                    "Agent turn started",
+                    event_type=AGENT_TURN_STARTED,
+                    subsystem="agent",
+                    run_id=turn_run_id,
+                    payload={"batch_size": len(batch), "is_idle": is_idle},
+                )
                 if not is_idle:
                     logger.info(f"batch of {len(batch)} perception(s): "
                                 f"{', '.join(p.surface for p in batch)}")
@@ -233,11 +251,30 @@ class Consciousness:
                                 self.events.publish(EventCategory.OUTPUT, "consciousness", text,
                                                        metadata={"mood": "normal"})
 
+                self.events.publish(
+                    EventCategory.AGENT, "agent.core",
+                    "Agent turn completed",
+                    event_type=AGENT_TURN_COMPLETED,
+                    subsystem="agent",
+                    run_id=turn_run_id,
+                    payload={"batch_size": len(batch), "is_idle": is_idle},
+                )
                 self._resolve_dangling_correlations()
                 self._trim()
             except asyncio.CancelledError:
                 break
             except Exception as e:
+                try:
+                    self.events.publish(
+                        EventCategory.AGENT, "agent.core",
+                        "Agent turn failed",
+                        event_type=AGENT_TURN_FAILED,
+                        subsystem="agent",
+                        run_id=turn_run_id if 'turn_run_id' in locals() else None,
+                        payload={"error": str(e)},
+                    )
+                except Exception:
+                    pass
                 logger.error(f"Consciousness loop error: {e}")
                 await asyncio.sleep(1)
 
@@ -303,30 +340,70 @@ class Consciousness:
         return self._tool_registry().schemas() or None
 
     async def _dispatch(self, call: ToolCall) -> str:
-        self.events.publish(
-            EventCategory.TOOL, "consciousness",
-            f"Tool call: {call.name}",
-            event_type="progress", subsystem="agent",
-            payload={"tool_name": call.name, "arguments": call.arguments},
+        tool_run_id = str(uuid.uuid4())
+        started = self.events.publish(
+            EventCategory.TOOL, "agent.core",
+            f"Tool started: {call.name}",
+            event_type=TOOL_STARTED,
+            subsystem="agent",
+            run_id=tool_run_id,
+            payload={"tool_name": call.name},
         )
         reg = self._tool_registry()
         tool = reg.get(call.name)
         if tool is None:
+            self.events.publish(
+                EventCategory.TOOL, "agent.core",
+                f"Tool failed: {call.name}",
+                event_type=TOOL_FAILED,
+                subsystem="agent",
+                run_id=tool_run_id,
+                parent_event_id=started.id,
+                payload={"tool_name": call.name, "error": f"ERROR: unknown tool '{call.name}'."},
+            )
             return f"ERROR: unknown tool '{call.name}'."
 
         if tool.long_running:
-            return self._dispatch_body(tool, call.arguments)
+            return self._dispatch_body(tool, call.arguments, started.id, tool_run_id)
 
-        return await reg.dispatch(call)
+        try:
+            result = await reg.dispatch(call)
+        except Exception as e:
+            result = f"ERROR: tool '{call.name}' failed: {e}"
 
-    def _dispatch_body(self, tool: Tool, args: Dict[str, Any]) -> str:
+        error_result = isinstance(result, str) and result.startswith("ERROR:")
+        if error_result:
+            self.events.publish(
+                EventCategory.TOOL, "agent.core",
+                f"Tool failed: {call.name}",
+                event_type=TOOL_FAILED,
+                subsystem="agent",
+                run_id=tool_run_id,
+                parent_event_id=started.id,
+                payload={"tool_name": call.name, "error": result},
+            )
+        else:
+            self.events.publish(
+                EventCategory.TOOL, "agent.core",
+                f"Tool completed: {call.name}",
+                event_type=TOOL_COMPLETED,
+                subsystem="agent",
+                run_id=tool_run_id,
+                parent_event_id=started.id,
+                payload={"tool_name": call.name, "result": result},
+            )
+        return result
+
+    def _dispatch_body(self, tool: Tool, args: Dict[str, Any], parent_started_event_id: str, tool_run_id: str) -> str:
         """Starts a BODY action async (single-slot, preempts the previous one)."""
         if self._body_task and not self._body_task.done():
             self._body_task.cancel()
-        self._body_task = asyncio.create_task(self._run_body(tool, args))
+        self._body_task = asyncio.create_task(
+            self._run_body(tool, args, parent_started_event_id, tool_run_id)
+        )
         return f"{tool.name} started (running in the background; its result will reach you as a perception)."
 
-    async def _run_body(self, tool: Tool, args: Dict[str, Any]):
+    async def _run_body(self, tool: Tool, args: Dict[str, Any], parent_started_event_id: str, tool_run_id: str):
         try:
             result = tool.handler(**args)
             if asyncio.iscoroutine(result):
@@ -335,6 +412,29 @@ class Consciousness:
             return
         except Exception as e:
             result = f"ERROR: {e}"
+
+        error_result = isinstance(result, str) and result.startswith("ERROR:")
+        if error_result:
+            self.events.publish(
+                EventCategory.TOOL, "agent.core",
+                f"Tool failed: {tool.name}",
+                event_type=TOOL_FAILED,
+                subsystem="agent",
+                run_id=tool_run_id,
+                parent_event_id=parent_started_event_id,
+                payload={"tool_name": tool.name, "error": result},
+            )
+        else:
+            self.events.publish(
+                EventCategory.TOOL, "agent.core",
+                f"Tool completed: {tool.name}",
+                event_type=TOOL_COMPLETED,
+                subsystem="agent",
+                run_id=tool_run_id,
+                parent_event_id=parent_started_event_id,
+                payload={"tool_name": tool.name, "result": result},
+            )
+
         self.bus.put(Perception(
             PerceptionKind.ACTION, "game:mc",
             f"[{tool.name}] result: {result}", salience=0.7,
