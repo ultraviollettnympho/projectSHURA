@@ -50,6 +50,50 @@ Use explicit `event_type` strings rather than inferring from `message` text.
 | `EVENT_TYPE_REHEARSAL` | `"rehearsal"` | Rehearsal stage events |
 | `EVENT_TYPE_CONFLICT` | `"conflict"` | Contradiction detected |
 
+## Presence Event Taxonomy (P0 — Design Phase)
+
+Presence/embodiment events use `EventCategory.EMBODIMENT`. The `subsystem` identifies the logical producer domain and MUST be one of `presence`, `expression`, `agent`, `dream`, `shell`, or `stt`. They are emitted by the Presence Runtime and its adapters, and observed by the Desktop Shell and Embodiment Adapters.
+
+| event_type | Source | Meaning |
+|---|---|---|
+| `presence.connected` | `presence.runtime` | Hermes/core started; presence active |
+| `presence.disconnected` | `presence.runtime` | Hermes/core stopped; presence offline |
+| `presence.state.changed` | `presence.runtime` | State transition `{from → to}`; payload: `{state, from, to, trigger}` |
+| `presence.emotion.changed` | `presence.runtime` | Emotion update; payload: `{emotion, motion}` (maps to 7 legacy mood IDs) |
+| `presence.motion.requested` | `presence.runtime` | Motion/animation request; payload: `{motion, duration}` |
+| `speech.started` | `expression.adapter` | TTS audio began playback; payload: `{mood}` |
+| `speech.chunk` | `expression.adapter` | TTS audio chunk ready (streaming); payload: `{chunk_index}` |
+| `speech.finished` | `expression.adapter` | TTS audio completed |
+| `speech.interrupted` | `expression.adapter` | TTS interrupted (barge-in); payload: `{resume_buffer_sec}` |
+| `input.listening.started` | `stt.adapter` | ASR began capturing audio |
+| `input.transcript.partial` | `stt.adapter` | Partial transcript update; payload: `{text}` |
+| `input.transcript.final` | `stt.adapter` | Final transcript ready; payload: `{text, confidence}` |
+| `input.listening.finished` | `stt.adapter` | ASR stopped capturing |
+| `tool.started` | `agent.core` | Tool execution began; payload: `{tool_name}` |
+| `tool.progress` | `agent.core` | Tool progress update; payload: `{tool_name, progress}` |
+| `tool.completed` | `agent.core` | Tool finished successfully; payload: `{tool_name, result}` |
+| `tool.failed` | `agent.core` | Tool failed; payload: `{tool_name, error}` |
+| `attention.requested` | `shell.ui` | User attention requested (shell → core) |
+| `attention.released` | `shell.ui` | User attention released |
+| `avatar.interaction.clicked` | `shell.ui` | Avatar clicked; payload: `{x, y, region}` |
+| `avatar.interaction.dragged` | `shell.ui` | Avatar dragged; payload: `{from_x, from_y, to_x, to_y}` |
+| `dream.started` | `dream.skill` | Dream consolidation begun; payload: `{run_id}` |
+| `dream.progress` | `dream.skill` | Dream progress update; payload: `{run_id, progress}` |
+| `dream.finished` | `dream.skill` | Dream consolidation complete; payload: `{run_id, status}` |
+
+### Presence Event Envelope (Mandatory Fields)
+
+Every presence event MUST include:
+- `subsystem`: `"presence"`, `"expression"`, `"agent"`, `"dream"`, `"shell"`, or `"stt"`
+- `run_id`: when part of a multi-step operation (e.g. one speech turn)
+- `parent_event_id`: when hierarchical (e.g. `speech.chunk` parent is `speech.started`)
+
+Every presence event MUST NOT include:
+- PNG filenames / file paths (renderer layer owns this)
+- OBS-specific commands (expression adapter owns this)
+- Live2D expression indices (embodiment adapter owns this)
+- Provider-specific avatar instructions (adapter layer translates)
+
 ## Correlation Semantics
 
 ### `run_id`
