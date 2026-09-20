@@ -151,6 +151,58 @@ async def wake_bea():
     brain.wake_up()
     return {"status": "success", "is_sleeping": brain.is_sleeping}
 
+@app.get("/dream/projection")
+def dream_projection(run_id: Optional[str] = None):
+    """Stable read-only projection of Dream Engine state for the Command Center / UI.
+
+    This endpoint consumes the Dream domain through the projection layer
+    (src/core/dream/projection.py) and the existing EventManager replay.
+    It does NOT reach into consciousness, expression, avatar PNG, OBS,
+    or provider internals directly. Mutation of Dream state must go
+    through /dream/run (explicit command), not through this endpoint.
+    """
+    brain = get_brain()
+    from src.core.dream.projection import DreamStateProjection, build_projection
+    from src.core.dream.domain import DreamRun, DreamState
+    # Application boundary: projection reads only. Domain mutation is
+    # routed explicitly through DreamSkill / /dream/run.
+    domain_run = DreamRun(run_id=run_id or "unknown", state=DreamState.CREATED)
+    # The projection layer uses event replay for observable lifecycle
+    # reconstruction; it does not infer state from arbitrary messages.
+    proj = build_projection(
+        run=domain_run,
+        event_manager=brain.event_manager,
+        snapshot=None,
+    )
+    return proj.to_dict()
+
+@app.get("/workspace/dream-events")
+def workspace_dream_events(run_id: Optional[str] = None, limit: int = 50):
+    """Workspace observation endpoint: Dream lifecycle events for workspace framework.
+    Uses existing EventManager replay (subsystem='dream') through projection/event interfaces.
+    Read-only observation only — mutation must route through /dream/run or application services.
+    Bounded workspace adapter: connects workspace framework (`docs/design/COMMAND_CENTER_V1.md`)
+    to verified event/projection framework (`docs/EVENT_CONTRACT.md`, `tests/test_events.py`).
+    """
+    brain = get_brain()
+    events = brain.event_manager.replay(subsystem="dream", run_id=run_id) if run_id else brain.event_manager.replay(subsystem="dream")
+    # Apply workspace-oriented presentation: include only structured fields; never infer state from messages
+    result = [
+        {
+            "event_id": ev.get("event_id"),
+            "event_type": ev.get("event_type"),
+            "run_id": ev.get("run_id"),
+            "subsystem": ev.get("subsystem"),
+            "source": ev.get("source"),
+            "message": ev.get("message"),
+            "severity": ev.get("severity"),
+            "visibility": ev.get("visibility"),
+            "payload_summary": {k: v for k, v in (ev.get("payload") or {}).items() if isinstance(v, (str, int, float, bool, list))},
+        }
+        for ev in events[-limit:]
+    ]
+    return {"workspace_events": result}
+
 @app.post("/chat")
 async def chat(request: ChatRequest, background_tasks: BackgroundTasks):
     brain = get_brain()
