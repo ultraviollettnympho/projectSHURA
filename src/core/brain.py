@@ -1,10 +1,17 @@
 import asyncio
+import uuid
 from typing import Tuple, Optional
 from src.interfaces.base_interfaces import TTSInterface, OBSInterface, STTInterface
 from src.core.config import BrainConfig
 from src.core.resources import load_avatar_resources
 from src.utils.history_manager import HistoryManager
-from src.core.events import EventManager
+from src.core.events import EventManager, EventCategory
+from src.core.presence import PresenceRuntime
+from src.core.presence.events import (
+    INPUT_LISTENING_STARTED,
+    INPUT_TRANSCRIPT_FINAL,
+    INPUT_LISTENING_FINISHED,
+)
 from src.core.expression import Expression
 from src.core.perception.bus import PerceptionBus
 from src.core.skills.base import SkillRegistry
@@ -51,6 +58,9 @@ class AIVtuberBrain:
         self.history_manager = HistoryManager()
 
         self.event_manager = EventManager()
+
+        # Semantic desktop/core presence. Renderer adapters observe its events.
+        self.presence = PresenceRuntime(self.event_manager)
 
         # single output sink (VOICE actuator + barge-in)
         self.expression = Expression(config, tts, obs, self.event_manager)
@@ -120,6 +130,10 @@ class AIVtuberBrain:
         logger.info(f"Brain Initialized. Session ID: {self.history_manager.session_id}")
 
         self._build_consciousness()
+
+        # Presence begins only after the composition root has initialized
+        # its services successfully.
+        self.presence.connect()
 
     def _build_consciousness(self):
         """Wires the single-brain stack. Started later only if enabled in config."""
@@ -206,6 +220,70 @@ class AIVtuberBrain:
 
         return self.history_manager.session_id
 
+    def _transcribe_with_events(
+        self,
+        audio_path: str,
+        *,
+        run_id: Optional[str] = None,
+    ) -> str:
+        """Transcribe one audio file while emitting the canonical STT lifecycle."""
+        if not self.stt:
+            return ""
+
+        run_id = run_id or str(uuid.uuid4())
+
+        started = self.event_manager.publish(
+            EventCategory.INPUT,
+            "stt.adapter",
+            "Input listening started",
+            event_type=INPUT_LISTENING_STARTED,
+            subsystem="stt",
+            run_id=run_id,
+            payload={"audio_path_provided": bool(audio_path)},
+        )
+
+        try:
+            transcript = self.stt.transcribe(audio_path)
+        except Exception:
+            self.event_manager.publish(
+                EventCategory.INPUT,
+                "stt.adapter",
+                "Input listening finished",
+                event_type=INPUT_LISTENING_FINISHED,
+                subsystem="stt",
+                run_id=run_id,
+                parent_event_id=started.id,
+                payload={"status": "error"},
+            )
+            raise
+
+        self.event_manager.publish(
+            EventCategory.INPUT,
+            "stt.adapter",
+            "Input transcript final",
+            event_type=INPUT_TRANSCRIPT_FINAL,
+            subsystem="stt",
+            run_id=run_id,
+            parent_event_id=started.id,
+            payload={
+                "text": transcript,
+                "confidence": None,
+            },
+        )
+
+        self.event_manager.publish(
+            EventCategory.INPUT,
+            "stt.adapter",
+            "Input listening finished",
+            event_type=INPUT_LISTENING_FINISHED,
+            subsystem="stt",
+            run_id=run_id,
+            parent_event_id=started.id,
+            payload={"status": "completed"},
+        )
+
+        return transcript
+
     # --- input entrypoints: deposit a perception, await Bea's reply ----------
 
     async def _perceive_and_wait(self, putter, route: str):
@@ -244,7 +322,7 @@ class AIVtuberBrain:
 
     async def generate_audio_response(self, audio_path: str) -> Tuple[str, str, str]:
         """Transcribes audio, deposits a voice perception, waits for the reply."""
-        transcript = self.stt.transcribe(audio_path) if self.stt else ""
+        transcript = self._transcribe_with_events(audio_path) if self.stt else ""
         text = transcript or "[Audio Message]"
         payload = await self._perceive_and_wait(
             lambda cid: self.surface_registry.get("voice:discord").perceive(
@@ -270,7 +348,7 @@ class AIVtuberBrain:
         """Discord voice: transcribe, feed a voice perception, return Bea's spoken bytes."""
         transcript = ""
         if self.stt:
-            transcript = self.stt.transcribe(audio_path)
+            transcript = self._transcribe_with_events(audio_path)
             logger.info(f"Transcript from {username}: '{transcript}'")
 
         text = transcript or "[Unintelligible]"
@@ -343,4 +421,8 @@ class AIVtuberBrain:
             await self.consciousness.stop()
 
     def shutdown(self):
-        self.obs.disconnect()
+        # Presence lifecycle is independent of whether consciousness is enabled.
+        try:
+            self.presence.disconnect()
+        finally:
+            self.obs.disconnect()

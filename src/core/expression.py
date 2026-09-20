@@ -1,12 +1,18 @@
 import asyncio
 import io
 import time
+import uuid
 from pathlib import Path
 from typing import Optional, Tuple
 
 from src.core.config import BrainConfig
 from src.core.events import EventManager, EventCategory
 from src.core.resources import resolve_mood_paths
+from src.core.presence.events import (
+    SPEECH_STARTED,
+    SPEECH_FINISHED,
+    SPEECH_INTERRUPTED,
+)
 from src.interfaces.base_interfaces import TTSInterface, OBSInterface
 from src.utils.logger import get_logger
 
@@ -45,6 +51,13 @@ class Expression:
         self.playback_sample_rate = 24000
         self.resume_buffer = None
 
+        # Semantic speech correlation. Renderer/audio implementation stays below
+        # this boundary.
+        self._active_speech_run_id: Optional[str] = None
+        self._active_speech_started_event_id: Optional[str] = None
+        self._resume_speech_run_id: Optional[str] = None
+        self._resume_speech_started_event_id: Optional[str] = None
+
     def set_png_map(self, png_map) -> None:
         self.png_map = png_map
 
@@ -57,14 +70,36 @@ class Expression:
 
     # --- VOICE actuator -----------------------------------------------------
 
-    async def speak(self, mood: str, message: str, *, route: str = "local") -> Optional[bytes]:
+    async def speak(
+        self,
+        mood: str,
+        message: str,
+        *,
+        route: str = "local",
+        run_id: Optional[str] = None,
+    ) -> Optional[bytes]:
         """Renders a spoken turn. Returns WAV bytes when route='remote'."""
+        speech_run_id = run_id or str(uuid.uuid4())
+
         if route == "remote":
+            # Remote generation returns audio to an external playback owner.
+            # Do not claim local playback happened here.
             return await self._speak_remote(mood, message)
-        await self._speak_local(mood, message)
+
+        await self._speak_local(mood, message, speech_run_id)
         return None
 
-    async def _play_audio(self, audio_data, sample_rate, device_id):
+    async def _play_audio(
+        self,
+        audio_data,
+        sample_rate,
+        device_id,
+        *,
+        mood: Optional[str] = None,
+        run_id: Optional[str] = None,
+        emit_started: bool = True,
+        parent_event_id: Optional[str] = None,
+    ):
         """Plays audio via sounddevice while tracking playback for barge-in."""
         import sounddevice as sd
 
@@ -77,12 +112,43 @@ class Expression:
 
         self._safe_play(sd, audio_data, sample_rate, device_id)
 
+        if emit_started:
+            started = self.event_manager.publish(
+                EventCategory.EMBODIMENT,
+                "expression.adapter",
+                "Speech playback started",
+                event_type=SPEECH_STARTED,
+                subsystem="expression",
+                run_id=run_id,
+                payload={"mood": mood},
+            )
+            self._active_speech_run_id = run_id
+            self._active_speech_started_event_id = started.id
+        else:
+            self._active_speech_run_id = run_id
+            self._active_speech_started_event_id = parent_event_id
+
         duration = len(audio_data) / sample_rate
         try:
             await asyncio.sleep(duration)
+
+            self.event_manager.publish(
+                EventCategory.EMBODIMENT,
+                "expression.adapter",
+                "Speech playback finished",
+                event_type=SPEECH_FINISHED,
+                subsystem="expression",
+                run_id=run_id,
+                parent_event_id=self._active_speech_started_event_id,
+                payload={},
+            )
         except asyncio.CancelledError:
             sd.stop()
             raise
+        finally:
+            if self._active_speech_run_id == run_id:
+                self._active_speech_run_id = None
+                self._active_speech_started_event_id = None
 
     def _safe_play(self, sd, audio_data, sample_rate, device_id):
         """Plays on the configured device, falling back to the default on failure.
@@ -124,7 +190,12 @@ class Expression:
             return audio_data.mean(axis=1)
         return audio_data[:, :channels]
 
-    async def _speak_local(self, mood: str, message: str):
+    async def _speak_local(
+        self,
+        mood: str,
+        message: str,
+        speech_run_id: str,
+    ):
         """Audio + visual output on the local device (stream/OBS)."""
         self.is_speaking = True
         font_used = self.config.text_font_size
@@ -166,7 +237,13 @@ class Expression:
                 if message:
                     audio_data, fs = await self.tts.generate_audio(message)
                     self.current_speech_task = asyncio.create_task(
-                        self._play_audio(audio_data, fs, self.config.audio_device_id)
+                        self._play_audio(
+                            audio_data,
+                            fs,
+                            self.config.audio_device_id,
+                            mood=mood,
+                            run_id=speech_run_id,
+                        )
                     )
 
                     font_used = self.config.text_font_size
@@ -285,6 +362,29 @@ class Expression:
             logger.error(f"Error stopping sounddevice: {e}")
 
         if self.current_speech_task and not self.current_speech_task.done():
+            self._resume_speech_run_id = self._active_speech_run_id
+            self._resume_speech_started_event_id = (
+                self._active_speech_started_event_id
+            )
+
+            if self._resume_speech_run_id is not None:
+                self.event_manager.publish(
+                    EventCategory.EMBODIMENT,
+                    "expression.adapter",
+                    "Speech playback interrupted",
+                    event_type=SPEECH_INTERRUPTED,
+                    subsystem="expression",
+                    run_id=self._resume_speech_run_id,
+                    parent_event_id=self._resume_speech_started_event_id,
+                    payload={
+                        "resume_buffer_sec": (
+                            len(self.resume_buffer) / self.playback_sample_rate
+                            if self.resume_buffer is not None
+                            else 0.0
+                        ),
+                    },
+                )
+
             self.current_speech_task.cancel()
         if self.current_typing_task and not self.current_typing_task.done():
             self.current_typing_task.cancel()
@@ -313,7 +413,14 @@ class Expression:
                         self.obs.set_image(talking_path)
 
                 self.current_speech_task = asyncio.create_task(
-                    self._play_audio(self.resume_buffer, self.playback_sample_rate, self.config.audio_device_id)
+                    self._play_audio(
+                        self.resume_buffer,
+                        self.playback_sample_rate,
+                        self.config.audio_device_id,
+                        run_id=self._resume_speech_run_id,
+                        emit_started=False,
+                        parent_event_id=self._resume_speech_started_event_id,
+                    )
                 )
                 try:
                     await self.current_speech_task
@@ -321,6 +428,8 @@ class Expression:
                     pass
 
                 self.resume_buffer = None
+                self._resume_speech_run_id = None
+                self._resume_speech_started_event_id = None
         finally:
             self.is_speaking = False
             if "normal" in self.png_map:
