@@ -1,6 +1,6 @@
-# ProjectBEA — AI VTuber Engine
+# ProjectSHURA — Persistent Creative Intelligence
 
-**ProjectBEA** is a modular, fully autonomous AI VTuber engine. It powers a living AI persona — **Bea** — that can hold live conversations, monologue to her audience when idle, join Discord voice calls, play Minecraft autonomously, and remember past sessions via a built-in RAG memory system. All of this is orchestrated through a clean plugin-based architecture where every component is swappable.
+**ProjectSHURA** is the portable, modular identity and runtime being built on top of a ProjectBEA-derived substrate. It powers **SHURA**, a persistent creative/technical collaborator that can hold live conversations, monologue to her audience when idle, join Discord voice calls, play Minecraft autonomously, and remember past sessions via a built-in RAG memory system. All of this is orchestrated through a clean plugin-based architecture where every component is swappable.
 
 
 > Built for fun by a 19-year-old CS student learning Python. Open-source, self-hostable, and designed to be easily extended.
@@ -14,10 +14,10 @@
 | **Swappable LLMs** | OpenRouter (any model), OpenAI, Groq — tool-use ready, switch at runtime |
 | **Multiple TTS engines** | EdgeTTS (free), Kokoro (local ONNX), Orpheus (API) |
 | **OBS Integration** | Avatar PNG/video swap, animated text bubble via WebSocket |
-| **RAG Memory** | ChromaDB-powered diary system — Bea remembers past sessions |
+| **RAG Memory** | ChromaDB-powered diary system — SHURA remembers past sessions |
 | **Discord Skill** | Full voice call integration — listens, transcribes, responds live |
 | **Minecraft Skill** | Autonomous LLM-driven agent that plays Minecraft via WebSocket |
-| **Monologue Skill** | When idle, Bea automatically starts talking to her audience |
+| **Monologue Skill** | When idle, SHURA may automatically starts talking to her audience |
 | **Web Dashboard** | React + FastAPI dashboard for chat, config, skill control, brain activity |
 | **Hot Reload** | Change models, voices, or settings at runtime without restart |
 | **Plugin Skills** | Every capability is a `BaseSkill` plugin — add your own in minutes |
@@ -59,7 +59,7 @@
 ## Project Structure
 
 ```
-ProjectBEA/
+ProjectSHURA/
 ├── main.py                    # Entry point (CLI args + engine bootstrap)
 ├── config.json                # Persistent runtime configuration
 ├── pyproject.toml             # Python project dependencies
@@ -177,7 +177,7 @@ Skills are autonomous background capabilities managed by the `SkillManager`. Eac
 | **Memory** | RAG system: converts sessions into diary entries, stores in ChromaDB, injects relevant context into every prompt |
 | **Discord** | Launches a Node.js Discord bot; listens in voice channels, transcribes speech, sends audio back live |
 | **Minecraft** | Connects via WebSocket to a Minecraft mod; an LLM agent autonomously performs actions using tool-calling |
-| **Monologue** | When the audience is silent, Bea starts unprompted storytelling — episodically, chunk by chunk |
+| **Monologue** | When the audience is silent, SHURA starts unprompted storytelling — episodically, chunk by chunk |
 
 **[Skills Overview →](docs/skills/overview.md)**
 
@@ -188,7 +188,7 @@ Skills are autonomous background capabilities managed by the `SkillManager`. Eac
 The `--web` flag starts a FastAPI backend (port 8000) and serves a React + Tailwind frontend.
 
 **Pages:**
-- **Chat** — text chat with Bea, session management
+- **Chat** — text chat with SHURA, session management
 - **Brain Activity** — real-time event feed (inputs, outputs, skill events, thoughts)
 - **Skills** — toggle skills on/off at runtime
 - **Config** — edit every setting live with hot reload
@@ -218,7 +218,7 @@ The `--web` flag starts a FastAPI backend (port 8000) and serves a React + Tailw
 
 ---
 
-## Extending ProjectBEA
+## Extending ProjectSHURA
 
 The modular design makes adding new capabilities straightforward:
 

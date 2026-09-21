@@ -33,7 +33,7 @@ def parse_args():
     parser.add_argument("--png-dir", default=None, help="Directory for avatar PNGs")
 
     # llm selection
-    parser.add_argument("--llm-provider", choices=["openrouter", "openai", "groq"], default=None, help="LLM Provider to use")
+    parser.add_argument("--llm-provider", choices=["openrouter", "openai", "groq", "omniroute"], default=None, help="LLM Provider to use")
 
     # openrouter
     parser.add_argument("--openrouter-key", default=None, help="OpenRouter API Key")
@@ -46,6 +46,10 @@ def parse_args():
     # groq
     parser.add_argument("--groq-key", default=None, help="Groq API Key")
     parser.add_argument("--groq-model", default=None, help="Groq Model")
+
+    # omniroute (local OpenAI-compatible proxy at localhost:20128)
+    parser.add_argument("--omniroute-key", default=None, help="OmniRoute API Key (uses HERMES_CUSTOM_OMNIROUTE_API_KEY env by default)")
+    parser.add_argument("--omniroute-model", default=None, help="OmniRoute Model (e.g. auto/best-chat)")
 
     # stt
     parser.add_argument("--stt-provider", choices=["groq", "openrouter"], default=None, help="STT Provider")

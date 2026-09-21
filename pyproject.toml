@@ -1,7 +1,7 @@
 [project]
-name = "projectbea"
+name = "projectshura"
 version = "0.1.0"
-description = "ProjectBEA - AI Vtuber Engine"
+description = "ProjectSHURA - Persistent Creative Intelligence"
 readme = "README.md"
 license = { file = "LICENSE" }
 requires-python = ">=3.10,<3.13"
@@ -30,7 +30,8 @@ dependencies = [
 ]
 
 [project.scripts]
-bea = "src.cli:run"
+shura = "src.cli:run"
+bea = "src.cli:run"  # deprecated alias; kept for backward compatibility
 
 [project.optional-dependencies]
 # extra deps for the standalone minecraft agent skill

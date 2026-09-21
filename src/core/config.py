@@ -14,7 +14,7 @@ class BrainConfig:
     soul_path: str = "data/prompts/soul.md"  # shared persona, prepended to every context
     system_prompt_path: str = "data/prompts/chat.md"  # deprecated: fallback when operating manual is absent
     operating_prompt_path: str = "data/prompts/operating.md"  # unified operating manual (speak tool, moods, perception)
-    llm_provider: str = "openrouter" # openrouter, openai, groq
+    llm_provider: str = "omniroute"  # openrouter, openai, groq, omniroute
 
     # openrouter (routes to virtually any model via one openai-compatible endpoint)
     openrouter_key: Optional[str] = field(default_factory=lambda: os.getenv("OPENROUTER_API_KEY"))
@@ -48,6 +48,10 @@ class BrainConfig:
     orpheus_key: Optional[str] = field(default_factory=lambda: os.getenv("ORPHEUS_API_KEY"))
     orpheus_endpoint: Optional[str] = field(default_factory=lambda: os.getenv("ORPHEUS_ENDPOINT", ""))
     orpheus_voice: str = "zoe"
+
+    # omniroute (local OpenAI-compatible proxy at localhost:20128)
+    omniroute_key: Optional[str] = field(default_factory=lambda: os.getenv("HERMES_CUSTOM_OMNIROUTE_API_KEY"))
+    omniroute_model: str = "auto/best-chat"
 
     # kokoro tts (onnx)
     kokoro_model: str = "kokoro-v0_19.onnx"

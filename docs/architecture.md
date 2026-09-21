@@ -1,320 +1,575 @@
-# Architecture
+# Architecture — ProjectSHURA v1
 
 ← [Back to README](../README.md)
 
 ---
 
-## Overview
+## 1. Overview
 
-ProjectBEA is built around a central orchestrator — `AIVtuberBrain` — that coordinates a set of independently pluggable modules (LLM, TTS, STT, OBS) and a self-contained skill system. The design goal is that every component can be swapped without changing the core logic.
+ProjectSHURA is a modular personal AI runtime built around a single persistent identity
+(SHURA) and a single consciousness loop. The architecture is divided into three tiers
+that must remain strictly separated:
+
+```
+                         ┌─────────────────────────────────────────┐
+                         │                FORGE                      │
+                         │  Frontend / avatar / workspace / UI shell │
+                         │  Consumes semantic state from below.      │
+                         │  NEVER mutates core directly.             │
+                         └───────────────────┬─────────────────────┘
+                                             │ observes via
+                                             │ projection + events
+                         ┌───────────────────▼─────────────────────┐
+                         │               ATLAS                      │
+                         │  Operational / orchestration layer        │
+                         │  Projects, work items, milestones,        │
+                         │  decisions, artifacts, session context.   │
+                         │  Emits atlas.* events. Read-only snapshot.│
+                         └───────────────────┬─────────────────────┘
+                                             │ consumes events
+                         ┌───────────────────▼─────────────────────┐
+                         │            PROJECTSHURA CORE              │
+                         │  Identity + runtime + cognition + skills  │
+                         │  brain | consciousness | expression |     │
+                         │  perception | events | dream | skills     │
+                         └─────────────────────────────────────────┘
+```
+
+**Rule:** FORGE and ATLAS consume stable interfaces from core. Core never imports
+FORGE or ATLAS. No dependency cycles.
 
 ---
 
-## Component Diagram
+## 2. Three Systems
+
+### 2.1 PROJECTSHURA (runtime + identity)
+
+**Purpose:** The persistent synthetic persona runtime — identity, cognition, skills,
+memory, dream, expression, event emission, and provider-agnostic reasoning.
+
+**Verified components:**
+- `AIVtuberBrain` (`src/core/brain.py`) — composition root
+- `Consciousness` (`src/core/consciousness.py`) — single mind loop
+- `PerceptionBus` (`src/core/perception/bus.py`) — sensory input aggregation
+- `Expression` (`src/core/expression.py`) — output sink (TTS + OBS + avatar)
+- `EventManager` + `BrainEvent` + `EventJournal` (`src/core/events.py`)
+- `PresenceRuntime` + `PresenceProjection` (`src/core/presence/`)
+- `DreamRun` / `DreamSnapshot` domain + Dream projection (`src/core/dream/`)
+- `Skill` / `SkillRegistry` + surfaces (`src/core/skills/`)
+- `LLMInterface` / `TTSInterface` / `OBSInterface` ABCs (`src/interfaces/`)
+- LLM factory + omniroute/openai/groq/openrouter (`src/modules/llm/`)
+- FastAPI web layer (`src/web/app.py`) + React/Vite frontend skeleton
+- CLI (`src/cli.py`)
+
+**Non-responsibilities:**
+- Does NOT own workspace navigation, persistent project workspace, or cockpit UI
+  (those belong to FORGE).
+- Does NOT own durable architecture documentation, decision logs, or cross-session
+  knowledge indexing (those belong to ATLAS).
+- Does NOT couple cognition to PNG/OBS/Live2D or any specific renderer.
+
+### 2.2 ATLAS (operational / orchestration layer)
+
+**Purpose:** Durable project-level knowledge, architecture, documentation, decisions,
+context indexing, session continuity, and cross-session reference — the persistent
+memory layer that survives individual runtime sessions and harness changes.
+
+**Implemented (this milestone):**
+- `src/core/atlas/models.py` — `Project`, `WorkItem`, `Milestone`, `Decision`,
+  `Artifact`, `AtlasSnapshot`, `AtlasEventType`
+- `src/core/atlas/service.py` — `AtlasService`: domain service with full CRUD,
+  event emission, cascade delete, read-only snapshot, and optional persistence
+  via `AtlasRepository` (JSON snapshot to `data/atlas/state.json`)
+- `src/core/atlas/repository.py` — `AtlasRepository` + `AtlasData`: durable
+  state persistence. Writes full domain snapshot on every mutation. Survives
+  process restarts. Loads snapshot on service init. No renderer details.
+- `src/core/atlas/__init__.py` — public API
+- Web endpoints: `/atlas/snapshot`, `/atlas/projects`, `/atlas/work-items`,
+  `/atlas/milestones`, `/atlas/decisions`, `/atlas/artifacts`, `/atlas/init`
+- Event emission: all mutations emit `atlas.*` events through `EventManager`
+
+**Non-responsibilities:**
+- Does NOT import brain, consciousness, expression, dream, or any renderer.
+- Does NOT own identity (`data/prompts/soul.md` stays in ProjectSHURA).
+- Does NOT own event transport (uses `EventManager` only).
+- Persistence is opt-in: `AtlasService` without a `storage_path` runs in-memory
+  only (for tests). With `storage_path`, `AtlasRepository` writes the full domain
+  snapshot to `data/atlas/state.json` on every mutation. The event journal is a
+  separate audit trail owned by `EventManager`.
+
+### 2.3 FORGE (frontend / avatar / workspace layer)
+
+**Purpose:** The workbench / command center / workspace environment — the external
+interface of ProjectSHURA for collaboration, observation, task management, agent
+coordination, and autonomous work execution.
+
+**Implemented:**
+
+*Backend (Step 2):*
+- `src/core/forge/contract.py` — `ForgeState` (semantic, renderer-agnostic state
+  object), `ForgePresenceState` enum, `ForgeProjection` (builds `ForgeState` from
+  core interfaces; accepts `is_speaking`/`is_sleeping` from the brain, never
+  infers them from PresenceRuntime)
+- `src/core/forge/__init__.py` — public API
+- `brain.get_forge_state()` (`src/core/brain.py`) — **owns** FORGE projection
+  construction. Wires EventManager + PresenceRuntime + ATLAS snapshot + dream
+  projection + brain flags into `ForgeProjection` and returns `ForgeState.to_dict()`.
+  The web layer delegates to this method; it does NOT build the projection inline.
+- Web endpoint: `/forge/state` — calls `brain.get_forge_state()`; read-only
+
+*Frontend (Step 3 — first vertical slice):*
+- `src/web/frontend/src/context/ForgeContext.jsx` — React context + `useForgeState()`
+  hook. Polls `/forge/state` (2s interval) for full semantic state and `/status`
+  (500ms interval) for lightweight live signals (`is_speaking`, `is_sleeping`).
+  Merges both into a single consumer-facing state object. Read-only.
+- `src/web/frontend/src/components/forge/PresentationAdapter.jsx` — **the replaceable
+  presentation boundary.** Pure function `mapPresentation(forgeState, options)` that
+  maps semantic state → visual presentation props. Supports two modes:
+    - `"orb"` (default): CSS/SVG presence indicator. Color = emotion, glow = speaking,
+      opacity = sleeping, scale = motion. Extensible to other visual modes.
+    - `"3d"`: Placeholder for the SHURA 3D model. Not implemented yet. When the 3D
+      model is viable (may require Blender MCP), this mode emits model-ready props
+      (modelUrl, expressionHint, poseHint) without changing the adapter interface.
+  The adapter imports nothing from the backend. It is pure presentation logic.
+- `src/web/frontend/src/components/forge/SHURAPresenceDisplay.jsx` — the visible
+  SHURA presence element. Combines orb (from PresentationAdapter), text status line,
+  emotion label, and ATLAS project badge. Proves: "SHURA exists visually as a
+  persistent presence."
+- `src/web/frontend/src/components/forge/ATLASContextPanel.jsx` — compact "current
+  work" panel. Active project name + status, active tasks (in_progress + todo),
+  current milestone, recent decisions. Answers "What project am I working on?"
+- `src/web/frontend/src/components/forge/ActivityFeed.jsx` — event timeline. Recent
+  events from `forgeState.activity.recent_events`, color-coded by type, most recent
+  first.
+- `src/web/frontend/src/pages/ForgePage.jsx` — new route. Composes all above
+  components. Includes a chat input that POSTs to `/chat` — proves the complete
+  interaction loop: user message → SHURA processes → `is_speaking` flips → Forge orb
+  reacts within polling interval → SHURA finishes → Forge shows idle.
+- `src/web/frontend/src/App.jsx` + `DashboardLayout.jsx` + `Sidebar.jsx` — wired
+  into the existing dashboard navigation. Forge accessible from sidebar "Forge" button.
+
+**Polling architecture:**
+- Full state: `/forge/state` every 2000ms
+- Light state: `/status` every 500ms (is_speaking, is_sleeping, active_skills)
+- Light state overlays full state for faster live signal updates
+- Both intervals are configurable via `ForgeProvider` props
+- Clean cleanup on unmount
+
+**Contract:** `ForgeState` must NEVER contain:
+- PNG paths, OBS scene names, Live2D model indexes, UI coordinates, frontend widget
+  IDs, arbitrary CSS state, or renderer-specific animation instructions.
+
+**3D model pathway:**
+- The SHURA 3D model (user-owned, may require Blender MCP for further work) is
+  supported via `PresentationAdapter` mode `"3d"`. When active and a model URL is
+  configured, the adapter emits model-ready props. The current `"orb"` mode is the
+  default and requires no external assets.
+- The adapter interface is mode-agnostic — adding the 3D renderer does not require
+  changes to ForgeContext, SHURAPresenceDisplay, or any backend code.
+
+**Non-responsibilities:**
+- Does NOT own SHURA identity (`soul.md` stays in ProjectSHURA).
+- Does NOT own core cognition (brain/consciousness loop stays independent).
+- Does NOT directly mutate `DreamRun` or `MemoryStorage`.
+- Does NOT create a separate event bus (uses `EventManager.subscribe()` + replay).
+- Does NOT put renderer details into backend state.
+
+---
+
+## 3. Component Diagram (current)
 
 ```
-                        ┌────────────────────────────────────────────┐
-                        │             main.py  (Entry Point)         │
-                        │  - Parses CLI arguments                    │
-                        │  - Instantiates modules from config        │
-                        │  - Creates and starts AIVtuberBrain        │
-                        └───────────────────┬────────────────────────┘
-                                            │
-                        ┌───────────────────▼────────────────────────┐
-                        │             AIVtuberBrain                  │
-                        │  src/core/brain.py                         │
-                        │                                            │
-                        │  ┌─────────┐  ┌─────────┐  ┌──────────┐    │
-                        │  │  LLM    │  │  TTS    │  │  STT     │    │
-                        │  │Interface│  │Interface│  │Interface │    │
-                        │  └─────────┘  └─────────┘  └──────────┘    │
-                        │  ┌──────────────────────────────────────┐  │
-                        │  │           OBSInterface               │  │
-                        │  └──────────────────────────────────────┘  │
-                        │  ┌──────────────────────────────────────┐  │
-                        │  │           SkillManager               │  │
-                        │  │  ┌────────┐ ┌─────────┐ ┌────────┐   │  │
-                        │  │  │ Memory │ │ Discord │ │  MC    │   │  │
-                        │  │  └────────┘ └─────────┘ └────────┘   │  │
-                        │  │  ┌────────────┐                      │  │
-                        │  │  │ Monologue  │                      │  │
-                        │  │  └────────────┘                      │  │
-                        │  └──────────────────────────────────────┘  │
-                        │  ┌──────────────────────────────────────┐  │
-                        │  │  HistoryManager  │  EventManager     │  │
-                        │  └──────────────────────────────────────┘  │
-                        └────────────────────┬───────────────────────┘
-                                             │
-               ┌─────────────────────────────▼───────────────────────────┐
-               │                  Web Layer (optional)                   │
-               │   FastAPI (src/web/app.py)  +  React (src/web/frontend) │
-               └─────────────────────────────────────────────────────────┘
+                                    FORGE (frontend / avatar / workspace)
+                                    ┌──────────────────────────────────┐
+                                    │  /forge/state  → ForgeState      │
+                                    │  /atlas/*      → ATLAS CRUD      │
+                                    │  /dream/projection → read-only   │
+                                    │  /workspace/dream-events         │
+                                    └────────┬─────────────────────────┘
+                                             │ consumes projection + events
+                                             ▼
+                         ┌─────────────────────────────────────────────┐
+                         │                  ATLAS                      │
+                         │  AtlasService (domain service +            │
+                         │    optional AtlasRepository persistence)   │
+                         │  models: Project, WorkItem, Milestone,    │
+                         │          Decision, Artifact, AtlasSnapshot │
+                         │  emits: atlas.* events through EventManager│
+                         │  persistence: data/atlas/state.json        │
+                         └────────┬────────────────────────────────────┘
+                                  │ consumes events from core
+                                  ▼
+┌──────────────────────────────────────────────────────────────────────────┐
+│                         PROJECTSHURA CORE                                 │
+│  ┌──────────┐  ┌──────────────┐  ┌────────────┐  ┌───────────────────┐  │
+│  │ AIVtuber │  │ Conscious-   │  │ Expression │  │  EventManager +   │  │
+│  │ Brain    │  │ ness         │  │ (TTS+OBS   │  │  BrainEvent +     │  │
+│  │ (comp.   │  │ (single mind │  │  +avatar)  │  │  JSONL journal    │  │
+│  │ root)    │  │  loop)       │  │            │  │                   │  │
+│  └────┬─────┘  └──────┬───────┘  └─────┬──────┘  └────────┬──────────┘  │
+│       │               │                │                   │             │
+│       ▼               ▼                ▼                   ▼             │
+│  ┌──────────┐  ┌────────────┐  ┌────────────┐  ┌───────────────────┐  │
+│  │Perception│  │ Skill      │  │ Presence   │  │  Dream Engine     │  │
+│  │Bus       │  │Registry    │  │Runtime +   │  │  (DreamRun,       │  │
+│  │(input    │  │+ surfaces  │  │Projection  │  │   DreamSnapshot,  │  │
+│  │agg.)     │  │(chat,voice,│  │(semantic   │  │   projection,     │  │
+│  │          │  │ minecraft, │  │ state from │  │   consolidation)  │  │
+│  │          │  │ dream...)  │  │ events)    │  │                   │  │
+│  └──────────┘  └────────────┘  └────────────┘  └───────────────────┘  │
+│                                                                            │
+│  ┌─────────────────────────────────────────────────────────────────────┐  │
+│  │  brain.get_forge_state() — owns FORGE projection construction       │  │
+│  │  Wires: EventManager + PresenceRuntime + ATLAS snapshot +           │  │
+│  │         dream projection + is_speaking/is_sleeping flags            │  │
+│  │  Returns: ForgeState.to_dict()  (renderer-free)                    │  │
+│  └─────────────────────────────────────────────────────────────────────┘  │
+└──────────────────────────────────────────────────────────────────────────┘
+         │
+         ▼
+┌──────────────────────────────────────────────────────────────────────────┐
+│                      PROVIDER / MODULE LAYER                              │
+│  LLM: omniroute | openai | groq | openrouter  (src/modules/llm/)        │
+│  TTS: edge | kokoro | orpheus              (src/modules/tts/)            │
+│  STT: groq | openrouter                     (src/modules/STT/)           │
+│  OBS: websocket                             (src/modules/obs/)           │
+│  Interfaces: LLMInterface, TTSInterface, OBSInterface (src/interfaces/) │
+└──────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Core: `AIVtuberBrain`
+## 4. Event Architecture
 
-**File:** `src/core/brain.py`
+### 4.1 EventManager (`src/core/events.py`)
 
-The brain is the single object that holds references to every module and coordinates all interactions. Key responsibilities:
+The single event bus. All state changes, lifecycle events, and observations flow
+through `EventManager.publish()`. It owns:
+- `BrainEvent` dataclass — canonical event envelope
+- `EventJournal` — append-only JSONL persistence (`data/events/events.jsonl`)
+- `subscribe()` / `unsubscribe()` — composable filter-based subscriptions
+- `replay()` / `filter_events()` — deterministic replay (preserves original IDs)
 
-| Responsibility | Description |
-|---|---|
-| **`initialize()`** | Loads avatar resources from `avatar_map` into `png_map`, loads the system prompt, connects OBS, creates a new session, calls `SkillManager.initialize()` to register and init skills — does **not** start them |
-| **`start_skills()`** | Starts the background `SkillManager` loop; must be called after `initialize()`. This is the step that makes enabled skills go live. |
-| **`generate_response(text, system_prompt=None)`** | Accepts text input and an optional `system_prompt` override → injects date + memory context → calls LLM → saves to history → emits `EventCategory.OUTPUT`. If `system_prompt` is `None`, uses `self.system_prompt`. Returns `("neutral", "[RESUMED]")` without calling the LLM when the input is a backchannel and a `resume_buffer` is active. |
-| **`generate_audio_response()`** | Accepts an audio file → transcribes via STT (or calls `llm.chat_audio()` if no transcript) → runs the full LLM + history pipeline inline. Returns a 3-tuple `(mood, message, transcript)`; on backchannel detection also returns `("neutral", "[RESUMED]", transcript)`. **Does not emit `EventCategory.OUTPUT` for the LLM turn.** When called via `POST /audio`, the endpoint schedules `perform_output_task()` separately, which does emit a TTS `OUTPUT` event — so audio responses are visible in the Brain Activity feed when using the web API. |
-| **`perform_output_task()`** | Given `(mood, message)`: first cancels any in-flight typing/speech tasks, then calls `set_text("", ...)` to clear the previous text bubble, then sets OBS avatar to talking pose. Starts `type_text()` as an async task immediately; then **awaits** `TTS.generate_audio()` — because `await` yields the event loop, the typing task executes concurrently with TTS generation. Then starts `_play_audio()` as a second task and gathers both. Typing animation, TTS generation, and audio playback all overlap; none of these three phases is strictly sequential. |
-| **`interrupt()`** | Cancels in-flight speech and typing tasks. Stores remaining audio in `resume_buffer` **only if the trailing fragment is longer than 0.5 s** — shorter tails are silently discarded (`resume_buffer` is set to `None`). |
-| **`reload_configuration()`** | Hot-reloads LLM, TTS, OBS, and STT modules and all skills after a config change |
-| **`run_loop()`** | Interactive CLI input loop (`You >` prompt). Supports `audio:<path>` prefix to send an audio file. Runs until user types `exit` or `quit`. |
-| **`shutdown()`** | Called in the `finally` block of `main.py`. Before `shutdown()` is invoked, `main.py` explicitly calls `await brain.skill_manager.stop()`, which cancels the skill loop and awaits all active skills' `stop()` coroutines. Only then is `brain.shutdown()` called to disconnect OBS. |
+**Event categories:** `system`, `input`, `output`, `thought`, `skill`, `tool`,
+`error`, `memory`, `agent`, `dream`, `embodiment`
 
-> **Deprecated wrappers:** `process_text_input(text)` and `process_audio_input(audio_path)` still exist on `AIVtuberBrain` for backward compatibility. They combine `generate_response()` / `generate_audio_response()` with `perform_output_task()` in a single call. New code should use the two-step API directly.
+### 4.2 Presence events (`src/core/presence/events.py`)
 
-### Barge-in & Resume Buffer
+Canonical presence event type names. Emitted by `PresenceRuntime` and adapters.
+Subsystem values: `presence`, `expression`, `agent`, `dream`, `shell`, `stt`.
 
-When a user interrupts Bea mid-speech, the brain:
-1. Calculates how many audio samples were already played.
-2. Stores the remaining audio in `resume_buffer` — **only if the remaining fragment is longer than 0.5 s**; shorter tails are discarded.
-3. If the user's next input is detected as a backchannel, speech resumes from where it was cut.
+```
+presence.connected / presence.disconnected / presence.state.changed
+presence.emotion.changed / presence.motion.requested
+speech.started / speech.chunk / speech.finished / speech.interrupted
+agent.turn.started / agent.turn.completed / agent.turn.failed
+tool.started / tool.progress / tool.completed / tool.failed
+input.listening.started / input.transcript.partial / input.transcript.final
+input.listening.finished
+```
 
-**Backchannel detection (`_is_backchannel`):** A fixed vocabulary of single- and multi-word phrases is matched: `"ok"`, `"yeah"`, `"continue"`, `"vai avanti"`, `"go on"`, `"procedi"`, `"continua"`, and others. Any input **longer than 30 characters** is unconditionally rejected as a backchannel, regardless of content.
+**Presence events MUST NOT contain:** PNG filenames, OBS commands, Live2D indices,
+provider-specific avatar instructions, UI coordinates.
 
-> **Backchannel return value:** When `generate_response()` detects a backchannel with an active `resume_buffer`, it calls `_resume_speech()` and returns the sentinel tuple `("neutral", "[RESUMED]")` — **no LLM call is made**. Callers (e.g. web API `POST /chat`, Discord flush) will receive `mood="neutral"` and `content="[RESUMED]"` in the response. The frontend should treat `[RESUMED]` as a no-op display-wise.
+### 4.3 PresenceRuntime (`src/core/presence/runtime.py`)
+
+Owns semantic Presence state. Emits presence.* events. Knows nothing about PNGs,
+OBS, Live2D, VRM, audio devices, or provider-specific renderer APIs.
+
+States: `offline`, `idle`, `listening`, `thinking`, `speaking`, `interrupted`
+
+### 4.4 PresenceProjection (`src/core/presence/projection.py`)
+
+Deterministic translation from canonical events to Presence state. Subscribes to
+event types, derives state from lifecycle flags. Never touches renderer APIs.
+
+### 4.5 ATLAS events (`src/core/atlas/models.py` — `AtlasEventType`)
+
+All ATLAS mutations emit `atlas.*` events through the same `EventManager`:
+
+```
+atlas.project.created / updated / active_changed / deleted
+atlas.work_item.created / updated / transitioned / deleted
+atlas.milestone.created / updated / completed
+atlas.decision.recorded / updated
+atlas.artifact.added / removed
+```
+
+Subsystem: `atlas`. Category: `EventCategory.AGENT` (orchestration layer).
 
 ---
 
-## Data Flow
+## 5. Dream Engine
 
-### Text Input Path
+Located in `src/core/dream/`. A backend transaction/subsystem layer. Does not own
+event transport, persistence, or UI rendering.
 
-```
-User text
-    │
-    ▼
-generate_response()
-    ├─ inject date + memory context into system prompt
-    ├─ call LLM.chat(user_text, system_prompt, history)
-    │       └─ returns (mood: str, message: str, metadata: dict)
-    ├─ save to HistoryManager
-    └─ emit EventCategory.OUTPUT event
-    │
-    ▼
-perform_output_task(mood, message)
-    ├─ cancel in-flight typing and speech tasks (if any)
-    ├─ OBS: set_text("", ...) → clears any previous text bubble
-    ├─ OBS: switch avatar to talking pose for this mood
-    ├─ [task] OBS.type_text(message) → starts async typing animation
-    ├─ [concurrent] TTS.generate_audio(message) → numpy array  (await yields; typing task runs concurrently)
-    ├─ [task] _play_audio(numpy array) → sounddevice playback
-    └─ gather(typing_task, speech_task) → wait for both to finish
-    ├─ OBS: switch avatar back to idle
-    └─ OBS: clear text bubble
-```
+**Domain:** `DreamRun` (lifecycle: created → started → snapshot_created → ...
+→ completed / failed), `DreamSnapshot` (durable state observation, no PNG/avatar
+references)
 
-### Audio Input Path
+**Events:** `dream.started`, `dream.snapshot_created`, `dream.reconciliation_started`,
+`dream.reconciliation_completed`, `dream.completed`, `dream.failed`
+(subsystem: `dream`, category: `EventCategory.DREAM`)
 
-```
-Audio file (WAV/MP3)
-    │
-    ▼
-generate_audio_response()
-    ├─ STT.transcribe(audio_path) → transcript text
-    │       (if transcript is a backchannel → _resume_speech(); return ("neutral", "[RESUMED]", transcript))
-    ├─ save user transcript to HistoryManager (same as generate_response)
-    ├─ inject date + memory context (same as generate_response)
-    ├─ if transcript available: LLM.chat(transcript, system_prompt, history)
-    │   else:                   LLM.chat_audio(audio_path, system_prompt, history)
-    ├─ save assistant message to HistoryManager
-    └─ return (mood, message, transcript)  ← always a 3-tuple
-```
+**Projection:** `DreamStateProjection` + `build_projection()` — read-only. Never
+mutates `DreamRun`. Consumes domain objects + event replay.
 
-> **Note:** `generate_audio_response()` runs the full pipeline inline — it does **not** call `generate_response()` internally. The two methods share the same logic but are maintained separately. One behavioral difference: `generate_audio_response()` does **not** emit `EventCategory.OUTPUT` for the LLM response turn. However, when invoked via `POST /audio`, the endpoint separately schedules `perform_output_task()`, which does emit a TTS `OUTPUT` event — so audio responses **are** visible in the Brain Activity feed when using the web API. They are invisible only if `generate_audio_response()` is called directly without a subsequent `perform_output_task()`.
-
-### Discord Voice Path
-
-```
-Discord voice data (Opus stream)
-    │  [VoiceManager.js — Node.js bot — prism-media OpusDecoder → PCM → WAV]
-    ▼
-POST /discord/audio  (multipart — WAV + username + flush_buffer)
-    │
-    ▼
-brain.process_discord_interaction()
-    ├─ STT.transcribe() → transcript
-    ├─ buffer aggregation: all callers within 300 ms window (BUFFER_WINDOW)
-    │       are merged into one LLM context to handle simultaneous speakers
-    ├─ generate_response(combined_text)
-    ├─ TTS.generate_audio() → numpy array → WAV bytes → base64 → JSON response
-    └─ _perform_visual_only_task(mood, message, duration)
-            └─ animates OBS avatar + text bubble WITHOUT local audio playback
-               (audio plays in Discord channel instead)
-    │
-    ▼
-VoiceManager: decode base64 → Readable stream → AudioPlayer
-```
-
-> Opus decoding happens entirely in Node.js. The Python side only ever receives a WAV file.
+**Web endpoint:** `/dream/projection` (read-only), `/dream/run` (mutation command),
+`/dream/wake`
 
 ---
 
-## Configuration System
+## 6. Dependency Direction
 
-**File:** `src/core/config.py`
-
-`BrainConfig` is a Python `@dataclass` that:
-- Sets sensible defaults for every field.
-- On `__post_init__`, automatically loads `config.json` from the project root.
-- Has a `save_to_file()` method used by the web API for persistent config updates.
-
-Config priority differs by field type (highest → lowest):
-
-| Field type | Priority order |
-|---|---|
-| Non-secret fields (`language`, `llm_provider`, `obs_host`, …) | CLI arg → `config.json` → dataclass default *(env vars not read)* |
-| Secret fields (`*_key`, `orpheus_endpoint`) | CLI arg → environment variable → `config.json` fallback → `None` |
-
-> Environment variables are **only read for secret fields**. For those fields they unconditionally win over `config.json` — if the env var is non-empty, the `config.json` value is ignored even if it is non-empty.
-
-[Configuration Reference →](configuration.md)
-
----
-
-## Event System
-
-**File:** `src/core/events.py`
-
-The `EventManager` is a simple in-process pub/sub bus. Events are published by any part of the brain and stored in a circular buffer of up to 200 events.
-
-| Category | Published by |
-|---|---|
-| `system` | Brain lifecycle events |
-| `input` | User text/audio received |
-| `output` | LLM response, TTS playback |
-| `thought` | Internal reasoning (Minecraft agent) |
-| `skill` | Skill state changes |
-| `tool` | Tool calls (Minecraft agent tools) |
-| `error` | Errors |
-
-The web frontend polls `GET /events` to display the real-time brain activity feed.
-
----
-
-## Interface Layer
-
-**File:** `src/interfaces/base_interfaces.py`
-
-All pluggable components implement one of these abstract base classes:
-
-```python
-class LLMInterface(ABC):
-    def chat(user_input, system_prompt, history) -> (mood, message, metadata)
-    def chat_audio(audio_path, system_prompt, history) -> (mood, message, metadata)
-    def generate_json(user_input, system_prompt, history) -> dict
-    def reload_config(config) -> None
-
-class TTSInterface(ABC):
-    async def generate_audio(text) -> (np.ndarray, sample_rate)
-    async def speak(text, output_device_id) -> None   # abstract; brain does not call this directly
-    def reload_config(config) -> None
-
-class STTInterface(ABC):
-    def transcribe(audio_path, language: str = "en") -> str
-    def reload_config(config) -> None
-
-class OBSInterface(ABC):
-    def connect() / disconnect()
-    def set_image(path) / set_media(path)
-    async def type_text(text, source_name, **kwargs) -> int
-    def set_text(text, source_name, font_size) -> None
-    def reload_config(config) -> None
+```
+identity (data/prompts/soul.md, operating.md)
+  ↓
+runtime / cognition (brain, consciousness, expression, perception)
+  ↓
+semantic domain events (EventManager, BrainEvent, EventJournal)
+  ↓
+projections / state views (PresenceProjection, DreamStateProjection)
+  ↓
+workspace / orchestration (ATLAS: models, service, events)
+  ↓
+UI / avatar / desktop presence (FORGE: ForgeState, ForgeProjection, /forge/state)
 ```
 
----
-
-## Logging
-
-**File:** `src/utils/logger.py`
-
-All modules use a shared structured logger built on Python's `logging` module with [`rich`](https://github.com/Textualize/rich) for colored console output.
-
-```python
-from src.utils.logger import get_logger
-
-logger = get_logger("bea.mymodule")
-logger.info("started")
-logger.warning("something off")
-logger.error(f"failed: {e}")
-logger.debug("verbose detail")
-```
-
-`get_logger(name)` returns a cached `logging.Logger` instance. Each name maps to one logger — calling `get_logger("bea.brain")` twice returns the same object.
-
-**Log level** defaults to `INFO`. To see `DEBUG` output (e.g. OBS pagination, TTS playback details) set the env var before launch:
-
-```bash
-LOG_LEVEL=DEBUG python main.py --web
-```
-
-The logger sets `propagate = False` on every instance to prevent duplicate output from uvicorn's root logger.
+**Critical invariant:** No layer may import a layer above it.
+- FORGE must not be imported by ATLAS, dream, presence, events, or core.
+- ATLAS must not be imported by dream, presence, events, or core.
+- Dream domain must not import projection (projection imports domain).
+- Expression must not import consciousness or brain internals.
 
 ---
 
-## Session & History
+## 7. Identity / Core Separation
 
-**File:** `src/utils/history_manager.py`
+**Identity layer (protected):**
+- `data/prompts/soul.md` — SHURA's personality, values, aesthetic sensibility
+- `data/prompts/operating.md` — behavior rules, anti-sycophancy, intellectual posture
+- These files must NOT contain: model provider names, avatar file paths, OBS settings,
+  current mood, temporary project names, session IDs.
+- Changes require explicit governed review. See `docs/IDENTITY_SYNC.md`.
 
-Every conversation is a "session" stored as a JSON file under `data/conversations/`.
+**Core layer (runtime):**
+- `BrainConfig` (`src/core/config.py` → `config.json`) — operational config only.
+  Contains provider references, OBS settings, avatar paths — but NOT identity content.
 
-```json
-{
-  "session_id": "session_1700000000",
-  "start_time": "2025-01-01T12:00:00",
-  "last_updated": "2025-01-01T12:30:00",
-  "messages": [
-    {"role": "user", "content": "Hi!", "timestamp": "..."},
-    {"role": "assistant", "content": "...", "mood": "normal", "timestamp": "..."}
-  ]
-}
-```
-
-When a new session is started, the previous session is asynchronously processed by the Memory Skill's `DiaryGenerator` to produce a ChromaDB memory entry.
+**Separation rule:** Changing providers does not change identity. Changing identity
+requires explicit governed review. The identity files contain no provider names.
 
 ---
 
-## Single Consciousness (experimental)
+## 8. Provider Abstraction
 
-By default Bea runs as separate flows: a reactive chat brain, an autonomous Minecraft
-agent, and an idle monologue loop, each with its own context. An opt-in **unified
-consciousness** replaces these with one always-on mind.
+All backend services are accessed through abstract interfaces:
 
-Enable it via `config.json`:
+- `LLMInterface` — `chat()`, `chat_audio()`, `reload_config()`, `generate_json()`
+- `TTSInterface` — `speak()`, `generate_audio()`, `reload_config()`
+- `OBSInterface` — `connect()`, `disconnect()`, `set_image()`, `set_media()`,
+  `type_text()`, `set_text()`
 
-```json
-"consciousness": { "enabled": true }
-```
+Concrete implementations: `src/modules/llm/` (omniroute, openai, groq, openrouter),
+`src/modules/tts/` (edge, kokoro, orpheus), `src/modules/STT/` (groq, openrouter),
+`src/modules/obs/` (websocket).
 
-When on:
-
-- **One context, one loop** (`src/core/consciousness.py`). All channels push
-  `Perception`s onto a single `PerceptionBus`; Bea drains them, reasons, and acts.
-- **Surfaces** (`src/core/surfaces/`) are the channels: chat, discord voice, minecraft,
-  idle — each an input adapter + output sink. Adding Twitch/Telegram = one new `Surface`.
-- **Expression** (`src/core/expression.py`) is the single output sink (VOICE/BODY/TEXT).
-- **Steering**: new perceptions are folded into the live context mid-reasoning; Bea
-  decides whether to interrupt what she's doing. No hard channel priority.
-- **Parallel actuators**: speaking is non-blocking and body (game) actions run async
-  (single-slot), so Bea can talk and play at the same time.
-
-While the flag is off, the legacy per-flow paths remain the default.
+The LLM factory (`src/modules/llm/factory.py`) selects the active provider from
+config. Identity is independent of this choice.
 
 ---
 
-## Related Docs
+## 9. Web Layer
 
-- [Configuration →](configuration.md)
-- [Skills Overview →](skills/overview.md)
-- [Memory Skill (RAG) →](skills/memory.md)
-- [Web API →](web/api.md)
+`src/web/app.py` — FastAPI application. Global `brain_instance` (singleton). Key
+endpoints:
+
+| Endpoint | Purpose | Mutation? |
+|---|---|---|
+| `/health` | Health check | No |
+| `/config` | Get/update brain config | Yes (explicit) |
+| `/status` | `is_speaking`, `is_sleeping`, `active_skills` | No |
+| `/chat` | Text chat → perception + background output | Yes (via brain) |
+| `/audio` | Audio upload → transcript + response | Yes (via brain) |
+| `/dream/run` | Trigger dream/consolidation pass | Yes (explicit) |
+| `/dream/wake` | Wake consciousness | Yes (explicit) |
+| `/dream/projection` | Read-only DreamStateProjection | **No** |
+| `/workspace/dream-events` | Dream lifecycle events for workspace | **No** |
+| `/forge/state` | Aggregate ForgeState (presence+ATLAS+dream+events) | **No** |
+| `/atlas/snapshot` | Read-only ATLAS domain snapshot | **No** |
+| `/atlas/projects` | Create/list projects | Yes (explicit) |
+| `/atlas/work-items` | Create/list/transition work items | Yes (explicit) |
+| `/atlas/milestones` | Create/list/complete milestones | Yes (explicit) |
+| `/atlas/decisions` | Record/list decisions | Yes (explicit) |
+| `/atlas/artifacts` | Add/list/remove artifacts | Yes (explicit) |
+| `/skills` | List skills | No |
+| `/skills/{name}/toggle` | Enable/disable skill | Yes (explicit) |
+| `/events` | Recent events (in-memory) | No |
+
+**Rule:** Observation endpoints (`/dream/projection`, `/forge/state`, `/atlas/snapshot`,
+`/events`, `/workspace/dream-events`) are read-only. Mutation goes through explicit
+command endpoints (`/dream/run`, `/atlas/*`, `/skills/{name}/toggle`).
+
+---
+
+## 10. Frontend
+
+`src/web/frontend/` — React 19 + Vite + Tailwind CSS (v4) SPA. Consumes:
+
+- `/forge/state` — full semantic state (polling, 2s interval)
+- `/status` — lightweight live signals (polling, 500ms interval)
+- `/chat` — text interaction (form submit)
+- `/config`, `/sessions`, `/dream/*`, `/atlas/*`, `/skills/*` — existing endpoints
+
+### 10.1 Forge vertical slice (Step 3)
+
+The Forge frontend is the first genuinely usable Forge-facing layer. It is a React
+application that proves the complete loop: user interaction → SHURA runtime → state
+change → Forge projection → visible response.
+
+**File structure:**
+```
+src/web/frontend/src/
+├── context/
+│   └── ForgeContext.jsx          — data layer: polling, state merging, hook
+├── components/
+│   └── forge/
+│       ├── PresentationAdapter.jsx  — semantic → visual mapping (replaceable boundary)
+│       ├── SHURAPresenceDisplay.jsx — visible SHURA presence (avatar + status + emotion)
+│       ├── ATLASContextPanel.jsx    — compact current-work panel from ATLAS
+│       └── ActivityFeed.jsx         — event timeline from ForgeState
+└── pages/
+    └── ForgePage.jsx              — route: new view in DashboardLayout sidebar
+```
+
+**Architecture:**
+- `ForgeContext` is the single source of truth for Forge UI state. All components
+  consume `useForgeState()`. No component fetches directly.
+- `PresentationAdapter` is the only component that knows about visual presentation.
+  All other components receive already-mapped props or raw semantic state.
+- The chat input in `ForgePage` POSTs to `/chat` — same endpoint as ChatPage.
+  This is intentional: the interaction loop is proven through the existing channel.
+
+### 10.2 PresentationAdapter mode system
+
+`PresentationAdapter.mapPresentation(state, { mode, modelUrl })` supports:
+
+| Mode | Description | Status |
+|---|---|---|
+| `"orb"` | CSS presence indicator: color=emotion, glow=speaking, opacity=sleeping | Default, implemented |
+| `"3d"` | Placeholder for SHURA 3D model. Emits modelUrl, expressionHint, poseHint | Not implemented |
+
+The mode system is the abstraction boundary for future avatar implementations.
+Switching from orb to 3D (or to Live2D, or to any other renderer) requires changes
+only in `PresentationAdapter` and the rendering component — never in ForgeContext
+or the backend.
+
+### 10.3 Desktop presence pathway
+
+The long-term goal is for SHURA to sit above or alongside the user's other desktop
+applications — a persistent presence, not a chatbot window. The current Forge is a
+web page in a browser. The architecture supports the transition via:
+
+1. **PresentationAdapter mode system** — the adapter interface is renderer-agnostic.
+   A desktop wrapper (Electron, Tauri, or native) could consume the same `/forge/state`
+   endpoint and use a different PresentationAdapter mode for the native surface.
+
+2. **ForgeState is desktop-transportable** — it contains no browser-specific state.
+   A desktop client could poll `/forge/state` and render SHURA's presence in a
+   transparent, always-on-top window using any renderer that implements the adapter
+   interface.
+
+3. **Polling model is transport-agnostic** — the current 2s/500ms polling works in a
+   browser. A future desktop client could use the same endpoints, or a future SSE/
+   WebSocket transport could replace polling without changing the state model.
+
+4. **No browser lock-in** — ForgeContext and all forge components are plain React.
+   They could be embedded in a larger desktop application shell without modification
+   to the state model or the adapter interface.
+
+The llm-vtuber product reference (`docs.llmvtuber.com`) informs the UX direction —
+transparent background, always-on-top, draggable presence, reacting to speech. The
+architecture supports this direction; the implementation is deferred to a later step.
+- `/forge/state` — semantic state for the workspace/avatar layer
+- `/dream/projection` — Dream state observation
+- `/atlas/snapshot`, `/atlas/*` — project/work context
+- `/events` — event feed
+- `/status`, `/config`, `/skills`, `/dream/run` — control operations
+
+The frontend must never bypass the projection/event layer to reach into brain
+internals directly.
+
+---
+
+## 11. Persistence
+
+- **Event journal:** `data/events/events.jsonl` (append-only JSONL, bounded rotation)
+- **Memory:** ChromaDB at `data/memory_db/` (durable semantic memory)
+- **Session/history:** `data/conversations/` (session JSON files)
+- **Self-lore:** `data/memory/self.md`, `data/memory/recent.json`, `data/memory/self_profile.json`
+- **Config:** `config.json` (runtime config, NOT identity)
+- **ATLAS:** `data/atlas/state.json` — full domain snapshot written by `AtlasRepository`
+  on every mutation. Loaded on `AtlasService` init. Survives process restarts.
+  Opt-in: `AtlasService` without `storage_path` runs in-memory only (tests).
+  The event journal is a separate audit trail; ATLAS domain state is the current
+  snapshot, not an event log.
+
+---
+
+## 12. What Belongs Where
+
+| Concern | Belongs in | Why |
+|---|---|---|
+| SHURA's personality, values, aesthetic | `data/prompts/soul.md` (ProjectSHURA) | Identity is protected |
+| Behavior rules, anti-sycophancy | `data/prompts/operating.md` (ProjectSHURA) | Operating behavior |
+| Consciousness loop, reasoning | `src/core/consciousness.py` (ProjectSHURA) | Cognition |
+| Event emission, journal | `src/core/events.py` (ProjectSHURA) | Event substrate |
+| Semantic presence state | `src/core/presence/` (ProjectSHURA) | State, not renderer |
+| Dream domain, projection | `src/core/dream/` (ProjectSHURA) | Backend subsystem |
+| Provider implementations | `src/modules/` (ProjectSHURA) | Provider-specific code |
+| OBS/TTS/avatar rendering | `src/core/expression.py` + `src/modules/obs/` (ProjectSHURA) | Downstream adapter |
+| Project registry, work items, decisions | `src/core/atlas/` (ATLAS) | Operational layer |
+| ATLAS event emission | `src/core/atlas/service.py` → EventManager (ATLAS) | Uses existing event bus |
+| Workspace state, UI state | FORGE (frontend) | Presentation state |
+| Avatar rendering state (PNG/Live2D) | FORGE + Expression adapter | Embodiment, not cognition |
+| Durable architecture docs, ADRs | `docs/` (ATLAS) | Knowledge layer |
+| Session continuity, loop state | `docs/operations/` (ATLAS) | Cross-session context |
+| Frontend UI implementation | `src/web/frontend/` (FORGE) | Presentation only |
+
+---
+
+## 13. Roadmap Relationship: M1 → M2
+
+**M1 (current — shura-foundation branch):** Foundation + first Forge vertical slice complete.
+- Single consciousness loop, event foundation, presence architecture, dream engine,
+  memory consolidation framework, projection layer, skill surfaces, web layer.
+- 169 tests passing (164 domain tests + 5 Playwright harness capability tests).
+- ATLAS domain + service + repository (JSON persistence to `data/atlas/state.json`)
+  + web endpoints implemented. ATLAS initialized at brain startup, not lazily.
+- FORGE contract + `brain.get_forge_state()` projection owner + `/forge/state`
+  endpoint implemented. `is_speaking`/`is_sleeping` passed from brain, never
+  inferred from PresenceRuntime.
+- **Forge vertical slice (Step 3):** React frontend with ForgeContext polling,
+  PresentationAdapter (orb + 3d placeholder modes), SHURAPresenceDisplay,
+  ATLASContextPanel, ActivityFeed, ForgePage route wired into dashboard sidebar.
+  Complete interaction loop proven: chat input → /chat → SHURA speaks → Forge orb
+  reacts within polling interval.
+- All architectural boundaries enforced and tested.
+
+**M2 (next):** ATLAS operationalization + FORGE expansion + desktop presence pathway.
+- ATLAS knowledge indexing (cross-session retrieval from docs/).
+- ATLAS event consumption (selective intake of project-relevant events from
+  broader ProjectSHURA event stream — workspace changes, tool events, dream
+  insights — without making ATLAS a universal event sink).
+- FORGE expansion: additional workspace surfaces beyond the first vertical slice
+  (Overview, Memory, Dream Studio, Agents, Skills, MCP, Artifacts, System).
+- FORGE embodiment upgrade: replace orb mode with Live2D/3D renderer when
+  SHURA model is viable (may require Blender MCP). PresentationAdapter mode
+  system is ready for this transition.
+- Desktop presence pathway: transparent, always-on-top Forge mode. PresentationAdapter
+  and ForgeState are transport-agnostic and ready for a desktop wrapper.
+- Dream Studio full surface (observation + event replay).
+- Memory workspace surface (DreamSnapshot fields through projection).
+
+See `docs/tasks/V1_TASK_GRAPH.md` and `docs/tasks/V1_ROADMAP.md` for the full task graph.

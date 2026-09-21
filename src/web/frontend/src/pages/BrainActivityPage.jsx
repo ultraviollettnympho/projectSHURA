@@ -6,7 +6,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/card'
 import { Separator } from '../components/ui/separator';
 import { motion, AnimatePresence } from 'framer-motion';
 
-const API_BASE = 'http://localhost:8000';
+const API_BASE = '';
 
 // cmd style components
 const TerminalLine = ({ event }) => {

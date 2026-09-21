@@ -11,6 +11,7 @@ _PROVIDERS = {
     "openai": ("openai_key", "openai_model"),
     "groq": ("groq_key", "groq_model"),
     "openrouter": ("openrouter_key", "openrouter_model"),
+    "omniroute": ("omniroute_key", "omniroute_model"),
 }
 
 
@@ -44,5 +45,8 @@ def build_llm(config, stt: Optional[STTInterface] = None) -> LLMClient:
     if provider == "openrouter":
         from src.modules.llm.openrouter_llm import OpenRouterLLM
         return OpenRouterLLM(api_key=api_key, model_name=model, stt_interface=stt)
+    if provider == "omniroute":
+        from src.modules.llm.omniroute_llm import OmniRouteLLM
+        return OmniRouteLLM(api_key=api_key, model_name=model, stt_interface=stt)
 
     raise LLMConfigError(f"Provider {provider!r} has no builder.")  # unreachable

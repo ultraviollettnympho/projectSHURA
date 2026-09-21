@@ -1,6 +1,6 @@
 import asyncio
 import uuid
-from typing import Tuple, Optional
+from typing import Any, Tuple, Optional
 from src.interfaces.base_interfaces import TTSInterface, OBSInterface, STTInterface
 from src.core.config import BrainConfig
 from src.core.resources import load_avatar_resources
@@ -64,6 +64,10 @@ class AIVtuberBrain:
 
         # single output sink (VOICE actuator + barge-in)
         self.expression = Expression(config, tts, obs, self.event_manager)
+
+        # ATLAS operational layer (initialized at brain.initialize(),
+        # not left as a lazy placeholder).
+        self.atlas_service: Optional[Any] = None
 
         # unified consciousness (built in initialize, started only if enabled)
         self.perception_bus: Optional[PerceptionBus] = None
@@ -135,6 +139,15 @@ class AIVtuberBrain:
         # its services successfully.
         self.presence.connect()
 
+        # ATLAS operational layer — initialized at brain startup.
+        # Persists domain state to data/atlas/state.json.
+        # Survives process restarts; lost only if data/atlas/ is cleared.
+        from src.core.atlas.service import AtlasService
+        import os
+        atlas_path = os.path.join(os.getcwd(), "data", "atlas")
+        self.atlas_service = AtlasService(self.event_manager, storage_path=atlas_path)
+        logger.info("ATLAS service initialized (persistent).")
+
     def _build_consciousness(self):
         """Wires the single-brain stack. Started later only if enabled in config."""
         self.perception_bus = PerceptionBus(window=self.config.consciousness.get("window", 0.3))
@@ -193,6 +206,36 @@ class AIVtuberBrain:
             self.stt.reload_config(self.config)
 
         logger.info("Hot Reload Complete")
+
+    def get_forge_state(self) -> dict:
+        """Build a semantic ForgeState snapshot for the frontend/avatar layer.
+
+        Consumes:
+          - EventManager (recent events, speech/tool/dream activity)
+          - PresenceRuntime (connection/listening state)
+          - AtlasService (project/work/decision/artifact snapshot)
+          - Dream projection (current dream run state, if any)
+
+        Returns a renderer-free dict. No PNG paths, OBS scene names, Live2D
+        indices, UI coordinates, or CSS state.
+        """
+        from src.core.dream.projection import get_current_dream_projection
+        from src.core.forge.contract import ForgeProjection
+
+        dream_run_id = getattr(self, "dream_run_id", None)
+
+        projection = ForgeProjection(
+            event_manager=self.event_manager,
+            presence_runtime=self.presence,
+            atlas_snapshot_fn=lambda: self.atlas_service.snapshot() if self.atlas_service else None,
+            dream_projection_fn=lambda: get_current_dream_projection(
+                self.event_manager, run_id=dream_run_id
+            ),
+            is_speaking=self.is_speaking,
+            is_sleeping=self.is_sleeping,
+        )
+        state = projection.build_state()
+        return state.to_dict()
 
     def _obs_connect(self):
         if hasattr(self.obs, "source_name"):

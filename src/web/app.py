@@ -167,14 +167,405 @@ def dream_projection(run_id: Optional[str] = None):
     # Application boundary: projection reads only. Domain mutation is
     # routed explicitly through DreamSkill / /dream/run.
     domain_run = DreamRun(run_id=run_id or "unknown", state=DreamState.CREATED)
-    # The projection layer uses event replay for observable lifecycle
-    # reconstruction; it does not infer state from arbitrary messages.
     proj = build_projection(
         run=domain_run,
         event_manager=brain.event_manager,
         snapshot=None,
     )
     return proj.to_dict()
+
+
+@app.get("/forge/state")
+def forge_state(run_id: Optional[str] = None):
+    """Aggregate semantic state for the FORGE frontend/avatar layer.
+
+    Delegates to brain.get_forge_state() — the brain owns the projection
+    construction, not the web layer. This endpoint is read-only; it does
+    not mutate any state.
+
+    Consumes:
+      - PresenceRuntime (current presence state, emotion, motion)
+      - AtlasService.snapshot() (active project, work items, milestones, decisions)
+      - DreamStateProjection (dream run state, concepts, threads)
+      - EventManager (recent events for activity feed)
+
+    Produces ForgeState: a single semantic, renderer-agnostic object that any
+    frontend or avatar renderer can consume. Contains NO PNG paths, OBS scene
+    names, Live2D model indexes, UI coordinates, CSS state, or renderer-
+    specific animation instructions.
+
+    Mutation of any underlying state must go through explicit endpoints
+    (/atlas/*, /dream/run, /skills/{name}/toggle) — not through this endpoint.
+    """
+    brain = get_brain()
+    return brain.get_forge_state()
+
+
+@app.get("/atlas/snapshot")
+def atlas_snapshot():
+    """Read-only ATLAS domain snapshot for the FORGE frontend / ATLAS tooling.
+
+    Returns the current project, work item, milestone, decision, and artifact
+    registry. This endpoint is read-only; mutations go through the /atlas/*
+    endpoints below.
+    """
+    brain = get_brain()
+    if brain.atlas_service is None:
+        raise HTTPException(status_code=503, detail="ATLAS service not initialized")
+    return brain.atlas_service.snapshot().to_dict()
+
+
+@app.post("/atlas/projects")
+def atlas_create_project(name: str = Form(...), description: str = Form(default="")):
+    """Create a new ATLAS project."""
+    brain = get_brain()
+    if brain.atlas_service is None:
+        raise HTTPException(status_code=503, detail="ATLAS service not initialized")
+    project = brain.atlas_service.create_project(name=name, description=description)
+    return {"status": "success", "project": _project_to_dict(project)}
+
+
+@app.get("/atlas/projects")
+def atlas_list_projects():
+    brain = get_brain()
+    if brain.atlas_service is None:
+        raise HTTPException(status_code=503, detail="ATLAS service not initialized")
+    return {"projects": [_project_to_dict(p) for p in brain.atlas_service.list_projects()]}
+
+
+@app.get("/atlas/projects/{project_id}")
+def atlas_get_project(project_id: str):
+    brain = get_brain()
+    if brain.atlas_service is None:
+        raise HTTPException(status_code=503, detail="ATLAS service not initialized")
+    try:
+        return _project_to_dict(brain.atlas_service.get_project(project_id))
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+
+@app.post("/atlas/projects/{project_id}/active")
+def atlas_set_active_project(project_id: str):
+    brain = get_brain()
+    if brain.atlas_service is None:
+        raise HTTPException(status_code=503, detail="ATLAS service not initialized")
+    try:
+        project = brain.atlas_service.set_active_project(project_id)
+        return {"status": "success", "active_project": _project_to_dict(project)}
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+
+@app.post("/atlas/projects/{project_id}")
+def atlas_update_project(project_id: str, description: Optional[str] = Form(default=None),
+                         name: Optional[str] = Form(default=None)):
+    brain = get_brain()
+    if brain.atlas_service is None:
+        raise HTTPException(status_code=503, detail="ATLAS service not initialized")
+    try:
+        kwargs = {}
+        if description is not None:
+            kwargs["description"] = description
+        if name is not None:
+            kwargs["name"] = name
+        project = brain.atlas_service.update_project(project_id, **kwargs)
+        return {"status": "success", "project": _project_to_dict(project)}
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+
+@app.post("/atlas/projects/{project_id}/delete")
+def atlas_delete_project(project_id: str):
+    brain = get_brain()
+    if brain.atlas_service is None:
+        raise HTTPException(status_code=503, detail="ATLAS service not initialized")
+    try:
+        brain.atlas_service.delete_project(project_id)
+        return {"status": "success"}
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+
+@app.post("/atlas/projects/{project_id}/work-items")
+def atlas_create_work_item(
+    project_id: str,
+    title: str = Form(...),
+    description: str = Form(default=""),
+    priority: str = Form(default="medium"),
+    work_type: str = Form(default="task"),
+    assigned_to: str = Form(default=""),
+    depends_on: str = Form(default=""),
+):
+    brain = get_brain()
+    if brain.atlas_service is None:
+        raise HTTPException(status_code=503, detail="ATLAS service not initialized")
+    try:
+        deps = [d.strip() for d in depends_on.split(",") if d.strip()] if depends_on else []
+        item = brain.atlas_service.create_work_item(
+            project_id=project_id,
+            title=title,
+            description=description,
+            priority=priority,
+            work_type=work_type,
+            assigned_to=assigned_to,
+            depends_on=deps or None,
+        )
+        return {"status": "success", "work_item": _work_item_to_dict(item)}
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+
+@app.get("/atlas/projects/{project_id}/work-items")
+def atlas_list_work_items(project_id: str, status: Optional[str] = None):
+    brain = get_brain()
+    if brain.atlas_service is None:
+        raise HTTPException(status_code=503, detail="ATLAS service not initialized")
+    try:
+        brain.atlas_service.get_project(project_id)  # verify exists
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Project not found")
+    items = brain.atlas_service.list_work_items(project_id=project_id, status=status)
+    return {"work_items": [_work_item_to_dict(w) for w in items]}
+
+
+@app.post("/atlas/work-items/{item_id}/transition")
+def atlas_transition_work_item(item_id: str, new_status: str = Form(...)):
+    brain = get_brain()
+    if brain.atlas_service is None:
+        raise HTTPException(status_code=503, detail="ATLAS service not initialized")
+    try:
+        item = brain.atlas_service.transition_work_item(item_id, new_status)
+        return {"status": "success", "work_item": _work_item_to_dict(item)}
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Work item not found")
+
+
+@app.get("/atlas/work-items/{item_id}")
+def atlas_get_work_item(item_id: str):
+    brain = get_brain()
+    if brain.atlas_service is None:
+        raise HTTPException(status_code=503, detail="ATLAS service not initialized")
+    try:
+        return _work_item_to_dict(brain.atlas_service.get_work_item(item_id))
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Work item not found")
+
+
+@app.post("/atlas/milestones")
+def atlas_create_milestone(
+    project_id: str = Form(...),
+    name: str = Form(...),
+    description: str = Form(default=""),
+    order: int = Form(default=0),
+):
+    brain = get_brain()
+    if brain.atlas_service is None:
+        raise HTTPException(status_code=503, detail="ATLAS service not initialized")
+    try:
+        ms = brain.atlas_service.create_milestone(
+            project_id=project_id, name=name,
+            description=description, order=order,
+        )
+        return {"status": "success", "milestone": _milestone_to_dict(ms)}
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+
+@app.get("/atlas/milestones")
+def atlas_list_milestones(project_id: Optional[str] = None):
+    brain = get_brain()
+    if brain.atlas_service is None:
+        raise HTTPException(status_code=503, detail="ATLAS service not initialized")
+    ms = brain.atlas_service.list_milestones(project_id=project_id)
+    return {"milestones": [_milestone_to_dict(m) for m in ms]}
+
+
+@app.post("/atlas/milestones/{milestone_id}/complete")
+def atlas_complete_milestone(milestone_id: str):
+    brain = get_brain()
+    if brain.atlas_service is None:
+        raise HTTPException(status_code=503, detail="ATLAS service not initialized")
+    try:
+        ms = brain.atlas_service.complete_milestone(milestone_id)
+        return {"status": "success", "milestone": _milestone_to_dict(ms)}
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Milestone not found")
+
+
+@app.post("/atlas/decisions")
+def atlas_record_decision(
+    project_id: str = Form(...),
+    title: str = Form(...),
+    context: str = Form(default=""),
+    decision: str = Form(default=""),
+    consequences: str = Form(default=""),
+    decided_by: str = Form(default=""),
+):
+    brain = get_brain()
+    if brain.atlas_service is None:
+        raise HTTPException(status_code=503, detail="ATLAS service not initialized")
+    try:
+        d = brain.atlas_service.record_decision(
+            project_id=project_id, title=title, context=context,
+            decision=decision, consequences=consequences, decided_by=decided_by,
+        )
+        return {"status": "success", "decision": _decision_to_dict(d)}
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+
+@app.get("/atlas/decisions")
+def atlas_list_decisions(project_id: Optional[str] = None):
+    brain = get_brain()
+    if brain.atlas_service is None:
+        raise HTTPException(status_code=503, detail="ATLAS service not initialized")
+    ds = brain.atlas_service.list_decisions(project_id=project_id)
+    return {"decisions": [_decision_to_dict(d) for d in ds]}
+
+
+@app.post("/atlas/artifacts")
+def atlas_add_artifact(
+    project_id: str = Form(...),
+    name: str = Form(...),
+    kind: str = Form(default="file"),
+    location: str = Form(default=""),
+    description: str = Form(default=""),
+):
+    brain = get_brain()
+    if brain.atlas_service is None:
+        raise HTTPException(status_code=503, detail="ATLAS service not initialized")
+    try:
+        a = brain.atlas_service.add_artifact(
+            project_id=project_id, name=name, kind=kind,
+            location=location, description=description,
+        )
+        return {"status": "success", "artifact": _artifact_to_dict(a)}
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+
+@app.get("/atlas/artifacts")
+def atlas_list_artifacts(project_id: Optional[str] = None):
+    brain = get_brain()
+    if brain.atlas_service is None:
+        raise HTTPException(status_code=503, detail="ATLAS service not initialized")
+    as_ = brain.atlas_service.list_artifacts(project_id=project_id)
+    return {"artifacts": [_artifact_to_dict(a) for a in as_]}
+
+
+@app.post("/atlas/artifacts/{artifact_id}/delete")
+def atlas_remove_artifact(artifact_id: str):
+    brain = get_brain()
+    if brain.atlas_service is None:
+        raise HTTPException(status_code=503, detail="ATLAS service not initialized")
+    try:
+        brain.atlas_service.remove_artifact(artifact_id)
+        return {"status": "success"}
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Artifact not found")
+
+
+# --- ATLAS/FORGE helper serializers ---
+
+def _project_to_dict(p) -> dict:
+    return {
+        "project_id": p.project_id,
+        "name": p.name,
+        "description": p.description,
+        "status": p.status,
+        "created_at": p.created_at,
+        "updated_at": p.updated_at,
+        "metadata": p.metadata,
+    }
+
+
+def _work_item_to_dict(w) -> dict:
+    return {
+        "item_id": w.item_id,
+        "project_id": w.project_id,
+        "title": w.title,
+        "description": w.description,
+        "status": w.status,
+        "priority": w.priority,
+        "work_type": w.work_type,
+        "depends_on": w.depends_on,
+        "assigned_to": w.assigned_to,
+        "created_at": w.created_at,
+        "updated_at": w.updated_at,
+        "completed_at": w.completed_at,
+        "metadata": w.metadata,
+    }
+
+
+def _milestone_to_dict(m) -> dict:
+    return {
+        "milestone_id": m.milestone_id,
+        "project_id": m.project_id,
+        "name": m.name,
+        "description": m.description,
+        "status": m.status,
+        "target_date": m.target_date,
+        "order": m.order,
+        "created_at": m.created_at,
+        "updated_at": m.updated_at,
+        "completed_at": m.completed_at,
+    }
+
+
+def _decision_to_dict(d) -> dict:
+    return {
+        "decision_id": d.decision_id,
+        "project_id": d.project_id,
+        "title": d.title,
+        "context": d.context,
+        "decision": d.decision,
+        "consequences": d.consequences,
+        "status": d.status,
+        "decided_at": d.decided_at,
+        "decided_by": d.decided_by,
+        "supersedes": d.supersedes,
+        "metadata": d.metadata,
+    }
+
+
+def _artifact_to_dict(a) -> dict:
+    return {
+        "artifact_id": a.artifact_id,
+        "project_id": a.project_id,
+        "name": a.name,
+        "kind": a.kind,
+        "location": a.location,
+        "description": a.description,
+        "created_at": a.created_at,
+    }
+
+
+
+# --- ATLAS service wiring on the brain --- (deprecated: ATLAS is now
+# initialized at brain.initialize() time, not lazily via this endpoint.)
+# The _wire_atlas_service function and lazy initialization pattern are
+# replaced by brain.initialize() AtlasService creation. The /atlas/init
+# endpoint is kept for backward compatibility as a status check.
+
+
+@app.post("/atlas/init")
+def atlas_init():
+    """ATLAS service status check.
+
+    ATLAS is now initialized at brain.initialize() time, not lazily via
+    this endpoint. This endpoint is kept for backward compatibility and
+    returns the current ATLAS service status.
+    """
+    brain = get_brain()
+    service = brain.atlas_service
+    if service is None:
+        return {"status": "not_initialized", "message": "ATLAS not available"}
+    return {
+        "status": "ok",
+        "message": "ATLAS service active (initialized at brain startup)",
+        "project_count": len(service.list_projects()),
+        "active_project_id": service._active_project_id if hasattr(service, "_active_project_id") else None,
+    }
 
 @app.get("/workspace/dream-events")
 def workspace_dream_events(run_id: Optional[str] = None, limit: int = 50):

@@ -57,7 +57,7 @@ export default function ChatPage() {
     useEffect(() => {
         const interval = setInterval(async () => {
             try {
-                const res = await fetch('http://localhost:8000/status');
+                const res = await fetch('/status');
                 if (res.ok) {
                     const data = await res.json();
                     setIsSpeaking(data.is_speaking);
@@ -71,7 +71,7 @@ export default function ChatPage() {
 
     const refreshHistory = async () => {
         try {
-            const res = await fetch('http://localhost:8000/history');
+            const res = await fetch('/history');
             if (res.ok) {
                 const data = await res.json();
                 setMessages(data);
@@ -107,7 +107,7 @@ export default function ChatPage() {
         setIsLoading(true);
 
         try {
-            const res = await fetch('http://localhost:8000/audio', {
+            const res = await fetch('/audio', {
                 method: 'POST',
                 body: formData
             });
@@ -155,7 +155,7 @@ export default function ChatPage() {
             console.log("Speech Started (VAD) -> Interrupting");
             try {
                 // interrupt
-                await fetch('http://localhost:8000/interrupt', { method: 'POST' });
+                await fetch('/interrupt', { method: 'POST' });
             } catch (e) { console.error(e); }
         },
         onSpeechEnd: (blob) => {
@@ -185,7 +185,7 @@ export default function ChatPage() {
         setIsLoading(true);
 
         try {
-            const res = await fetch('http://localhost:8000/chat', {
+            const res = await fetch('/chat', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ message: userMsg.content })

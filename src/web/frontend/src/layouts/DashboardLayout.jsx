@@ -6,9 +6,10 @@ import ChatPage from '../pages/ChatPage';
 import ConfigPage from '../pages/ConfigPage';
 import SkillsPage from '../pages/SkillsPage';
 import BrainActivityPage from '../pages/BrainActivityPage';
+import ForgePage from '../pages/ForgePage';
 
 const DashboardLayout = () => {
-    const [view, setView] = useState('chat'); // 'chat', 'config', 'skills', 'activity'
+    const [view, setView] = useState('chat'); // 'chat', 'config', 'skills', 'activity', 'forge'
     const [configCategory, setConfigCategory] = useState('LLM'); // default config tab
     const [chatKey, setChatKey] = useState(0);
 
@@ -42,6 +43,7 @@ const DashboardLayout = () => {
                             {view === 'activity' && <BrainActivityPage />}
                             {view === 'config' && <ConfigPage activeCategory={configCategory} />}
                             {view === 'skills' && <SkillsPage />}
+                            {view === 'forge' && <ForgePage />}
                         </motion.div>
                     </AnimatePresence>
                 </main>

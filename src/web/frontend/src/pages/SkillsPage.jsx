@@ -10,7 +10,7 @@ import { motion } from 'framer-motion';
 import { useDialog } from '../context/DialogContext';
 import MinecraftConsole from '../components/console/MinecraftConsole';
 
-const API_BASE = 'http://localhost:8000';
+const API_BASE = '';
 
 export default function SkillsPage() {
     const [skills, setSkills] = useState({});
