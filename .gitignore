@@ -44,6 +44,7 @@ tts_debug_output.txt
 data/conversations/
 data/memory_db/
 data/memory/
+data/atlas/
 
 
 # Frontend
@@ -58,3 +59,4 @@ Thumbs.db
 *.onnx
 *.bin
 PLAN.md
+.worktrees/
