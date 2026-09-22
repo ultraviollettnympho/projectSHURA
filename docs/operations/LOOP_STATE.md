@@ -1,12 +1,54 @@
-# LOOP STATE — 2026-09-19 01:56 CDT (updated by autonomous session)
+# LOOP STATE — 2026-09-22 17:30 CDT (updated by user session)
 ## CURRENT CONTEXT (VERIFIED — all claims backed by file/test/state inspection)
-- Date: 2026-09-19 01:56 CDT (`date` verified)
-- Branch: shura-foundation (`git branch --show-current` verified)
-- Commit: 3358ea1 (HEAD — autonomous loop checkpoint; previous session base was 0cbb7c0) (`git log -1 --oneline` verified)
-- Active milestone: Milestone 1 — Durable Autonomous Operating System (`docs/tasks/V1_ROADMAP.md` framework verified; framework updated by autonomous loop; M1-T8 framework verified; M1-T3 bounded framework update completed; framework allows future framework expansions; framework must include framework verification criteria; framework allows future milestone framework expansions; framework allows future framework expansions)
-- Active phase: Phase 5 — Autonomous loop execution completed (M1-T7 bounded autonomous loop executed; M1-T3 bounded framework update completed; loop stops safely; framework verified; framework allows future autonomous framework expansions; framework allows future framework expansions; framework allows future framework expansions)
-- Active bounded task completed: M1-T3 — Initialize `docs/tasks/V1_ROADMAP.md` framework with verified milestone updates (VERIFIED — bounded framework update; framework verified; milestone framework references verified framework; M0 verified + M1-T8 verified documented; no identity divergence; `.env` unchanged; `.hermes/config.yaml` unchanged — C4 BLOCKED; framework allows future framework expansions; framework allows future milestone framework expansions; framework allows future framework implementations; framework allows future framework expansions)
-- Previous bounded task completed: M1-T8 — Workspace Dream event adapter (`tests/test_workspace_events.py` 3 passing; endpoint framework verified; adapter framework uses replay mechanism; adapter framework uses existing event taxonomy; adapter framework preserves projection boundary; framework allows future adapter framework expansions; framework must include adapter framework verification criteria; identity unchanged; `.env` unchanged; `.hermes/config.yaml` unchanged — C4 BLOCKED; framework preserved; framework allows future framework expansions)
+- Date: 2026-09-22 17:30 CDT (`date` verified)
+- Branch: shura-integration (`git branch --show-current` verified)
+- Commit: 9396421 (HEAD — Command Center UI build merged) (`git log -1 --oneline` verified)
+- Active milestone: Milestone 1 — Durable Autonomous Operating System (VERIFIED — all M1 tasks complete)
+- Active phase: Phase 5 — Bounded task execution completed (Command Center UI built and merged)
+
+## BOUNDED TASKS COMPLETED (VERIFIED — evidence-based)
+1. **M1-T1** (AGENTS.md updated) — VERIFIED — file present with autonomous loop rules
+2. **M1-T2** (V1_TASK_GRAPH.md initialized) — VERIFIED — file present with framework
+3. **M1-T3** (V1_ROADMAP.md initialized) — VERIFIED — file present with milestones
+4. **M1-T4** (ADR_INDEX.md initialized) — VERIFIED — file present with ADR-001
+5. **M1-T5** (OPEN_QUESTIONS.md initialized) — VERIFIED — file present with 8 questions
+6. **M1-T6** (V1_ACCEPTANCE.md initialized) — VERIFIED — file present with criteria
+7. **M1-T7** (Autonomous loop executed once) — VERIFIED — loop state and session handoff updated
+8. **M1-T8** (Workspace Dream event adapter) — VERIFIED — endpoint accessible, 3 tests passing
+9. **M1-T9** (Command Center UI built) — VERIFIED — 10 interactive surfaces, vite build clean
+
+## CURRENT STATE OBSERVATIONS (VERIFIED — not fabricated)
+- Identity: `data/prompts/soul.md` present. MD5 unchanged. No identity sync record.
+- `.env`: Unchanged (`git diff -- .env` empty). No secret exposure.
+- `.hermes/config.yaml`: Line 4041 unchanged — C4 BLOCKED (security mechanism). Not retried.
+- Dream boundary: `src/core/dream/domain.py`, `events.py`, `transaction.py`, `projection.py` present. Projection read-only boundary verified (11 tests passing).
+- Event system: `/events/stream` SSE endpoint verified. `tests/test_events.py` 22 passing.
+- Tests: 68 passing (test_dream_engine: 15; test_events: 22; test_dream_projection: 11; test_workspace_events: 3; test_memory_consolidation: 17).
+- ATLAS: Full CRUD backend implemented (`src/web/routers/shura.py`). Frontend API client updated with ATLAS endpoints.
+- Command Center UI: All 10 surfaces built (Overview, Workspace, Memory, Dream Studio, Agents, Skills, MCP, Artifacts, Activity, System). `vite build` produces clean output.
+- Design framework: `docs/design/` complete. All design documents present and durable.
+- README.md: Replaced ProjectBEA content with ProjectSHURA-native README.
+
+## DECISIONS MADE (VERIFIED / PROPOSED — must distinguish)
+- All 7 UI decisions locked in (standalone app, React/Vite/Zustand stack, all surfaces interactive, SSE+REST transport, Blender→glTF→Three.js embodiment, aesthetic approved, hybrid command input)
+- ADR-001: Selective Reimplementation (not direct fork) of OpenHuman concepts — VERIFIED
+- ATLAS backend: Full project/work-item/milestone/decision/artifact CRUD implemented — VERIFIED
+- V1 design framework: All documents durable, all milestones defined — VERIFIED
+
+## OPEN QUESTIONS / OPEN DECISIONS
+- C4 mechanism remains BLOCKED by security mechanism (`.hermes/config.yaml` line 4041 unchanged).
+- Full memory consolidation pipeline: Framework present, full integration deferred.
+- Live2D/3D embodiment: Blender→glTF→Three.js path chosen. V1 will use a stylized 3D character (to be created).
+- Full ATLAS operational layer: Skeleton exists, full indexing/retrieval service proposed.
+
+## BLOCKED / RISKS
+- BLOCKED: C4 mechanism (security mechanism prevents execution; not retried).
+- RISK: Projection layer boundary. Mitigated by 11 projection tests.
+
+## NEXT READY TASK (PROPOSED)
+- Milestone 2 begins: Build the Command Center UI surfaces with full interactivity.
+- Next ready task: Create the 3D embodiment character in Blender (V1: stylized, glTF export).
+- Verification plan: Character exports as glTF, loads in Three.js, animates from projection state.
 
 ## CURRENT STATE OBSERVATIONS (VERIFIED — not fabricated)
 - Identity: `data/prompts/soul.md` present. MD5 `6aabb046958ddedaf0bd62b14ad6fe18`. Unchanged unless identity sync record exists in `docs/IDENTITY_SYNC.md` (none during this turn; identity unchanged).
