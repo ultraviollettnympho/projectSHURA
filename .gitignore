@@ -60,3 +60,9 @@ Thumbs.db
 *.bin
 PLAN.md
 .worktrees/
+
+# Local runtime databases and turn logs
+data/bea.db
+data/bea.db-shm
+data/bea.db-wal
+data/turns/
