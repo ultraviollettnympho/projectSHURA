@@ -40,6 +40,49 @@ Related:
 
 ---
 
+## ADR-002: Tamanitomo Reference — Architectural Lessons (Reference Only, No Code Reuse)
+
+Status: PROPOSED (architectural knowledge integration; not implementation)
+
+Context:
+- Tamanitomo (`https://github.com/tamanitomo/tamanitomo`) is a sovereign/self-hosted AI companion built on Hermes Agent.
+- Licensed under PolyForm Noncommercial 1.0.0 — no source code copied, forked, or vendored.
+- Repository treated as architectural/reference source.
+
+Decision (Reference Only — Architectural Lessons):
+- ADOPT: Authoritative ledger → projections → presentation (reinforces existing `event → projection → presentation`)
+- ADOPT: Append-only history (already implemented in `EventJournal`)
+- ADOPT: Rules belong in code (prompts are not authoritative policy)
+- ADOPT: Identity and boundaries have different mutability (already protected)
+- ADOPT: SHURA ≠ Hermes (already enforced via ABCs and factory pattern)
+- ADAPT: Provenance vocabulary (add when memory architecture matures)
+- ADAPT: Outbox pattern (design for future proactive messaging)
+- ADAPT: Stale/unknown state distinction (extend `PresenceState` when sensors added)
+- ADAPT: Unconfirmed state (add confirmation timestamp to presence)
+- ADOPT: Autonomy fingerprinting (add change detection to avoid redundant model calls)
+- REFERENCE: Git-backed recovery (idea worth remembering; not justified until state format stabilizes)
+- REJECT: Multi-companion roster (contradicts single-identity architecture)
+- REJECT: Git auto-commit as state mechanism (conflates version control with state persistence)
+- REJECT: Vault as primary knowledge store (ATLAS is projection layer, not second brain)
+- REJECT: Tamanitomo presence loop design (SHURA has its own presence architecture)
+
+Consequences:
+- `docs/reference/TAMANITOMO_REFERENCE.md` created as durable architectural reference
+- No code changes; no identity changes; no boundary changes
+- Future sessions can consult the reference without re-deriving lessons from source
+
+Verification Evidence:
+- File inspection: `docs/reference/TAMANITOMO_REFERENCE.md` present
+- Boundary verification: `tests/test_dream_projection.py` 11 passing; `tests/test_events.py` 22 passing; `tests/test_dream_engine.py` 15 passing
+- Identity verification: `data/prompts/soul.md` unchanged; `.env` unchanged
+- No secret exposure; no C4 retry; no forbidden coupling
+
+Related:
+- Milestone 1 (M1-T10): Tamanitomo knowledge integration — documentation task
+- `docs/reference/TAMANITOMO_REFERENCE.md` — full comparison matrix and principles
+
+---
+
 ## ADR Reference Rules
 
 Every future ADR entry must:

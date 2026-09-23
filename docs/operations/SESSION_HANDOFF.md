@@ -1,3 +1,63 @@
+# SESSION HANDOFF — 2026-09-22 18:20 CDT (user session — Tamanitomo knowledge integration)
+
+Standard durable handoff format. Readable by any harness without access to this conversation.
+
+---
+
+## M1-T10 TAMANITOMO KNOWLEDGE INTEGRATION (VERIFIED — 2026-09-22)
+- Date: 2026-09-22 18:20 CDT
+- Branch: shura-foundation (`git branch --show-current` verified)
+- Commit: d09d64a (HEAD — merge: reconcile ProjectSHURA agent contracts) (`git log -1 --oneline` verified)
+- Harness: Hermes desktop
+- Profile / model reference: default (operational reference — not identity content)
+
+## WORK COMPLETED (VERIFIED — evidence-based)
+- `docs/reference/TAMANITOMO_REFERENCE.md` created (23,330 bytes) — Evidence: file present; 18-pattern comparison matrix; 12 principles (P1-P12); 4 rejected patterns (R1-R4); 4 open questions (Q9-Q12); license constraint recorded
+- `docs/reference/ADR_INDEX.md` updated — Evidence: ADR-002 added (Tamanitomo reference decision)
+- `docs/reference/OPEN_QUESTIONS.md` updated — Evidence: Q9-Q12 added (Tamanitomo-derived open questions)
+- `docs/operations/LOOP_STATE.md` updated — Evidence: M1-T10 section added
+- `docs/operations/SESSION_HANDOFF.md` updated — Evidence: this section
+
+## TESTS RUN
+- Full suite: `python -m unittest discover -s tests -p "test_*.py"` — 169 OK, 0 FAILED
+- No failures.
+
+## DECISIONS MADE (VERIFIED vs PROPOSED — must distinguish)
+- ADOPT: Authoritative ledger, append-only history, rules-in-code, identity mutability, SHURA≠Hermes, autonomy fingerprinting — VERIFIED (already core architecture)
+- ADAPT: Provenance vocabulary, outbox pattern, stale/unknown state, unconfirmed state — PROPOSED (design recommendations; not yet implemented)
+- REFERENCE: Git-backed recovery — PROPOSED (idea recorded; not justified for implementation)
+- REJECT: Multi-companion roster, Git auto-commit as state, vault as knowledge store, Tamanitomo presence loop — VERIFIED (rejected with reasons)
+
+## ARCHITECTURAL CHANGES (VERIFIED — documentation only)
+- `docs/reference/TAMANITOMO_REFERENCE.md` — New file. Boundary impact: documentation only; no code changes.
+- `docs/reference/ADR_INDEX.md` — ADR-002 added. Boundary impact: documentation only.
+- `docs/reference/OPEN_QUESTIONS.md` — Q9-Q12 added. Boundary impact: documentation only.
+- `docs/operations/LOOP_STATE.md` — M1-T10 section added. Boundary impact: documentation only.
+- `docs/operations/SESSION_HANDOFF.md` — This session recorded. Boundary impact: documentation only.
+- No changes to identity / `.env` / secrets / Dream domain boundary / event contract.
+
+## OPEN QUESTIONS / BLOCKED
+- C4 mechanism: BLOCKED (`.hermes/config.yaml` line 4041 unchanged). Not retried. Separate infrastructure issue.
+- Q9-Q12 (Tamanitomo-derived): PROPOSED — see `docs/reference/OPEN_QUESTIONS.md`.
+- Full memory consolidation pipeline: Deferred (framework present; full integration deferred).
+- Live2D/3D embodiment: Deferred (design contract verified; current PNG/sprite preserved).
+- Full ATLAS operational layer: Partial skeleton exists; operational layer proposed.
+- Full autonomous loop execution: Protocol designed; must be tested by future autonomous session.
+
+## NEXT TASK (must be READY from `docs/tasks/V1_TASK_GRAPH.md`)
+- Task ID: M1-T10 (Tamanitomo knowledge integration) — COMPLETED this session.
+- Next ready task: Select from V1_TASK_GRAPH.md based on current milestone, verified dependencies, bounded scope.
+- Verification plan: Per task graph.
+- Boundaries preserved: Identity / Dream / Event / Projection / No secret / No identity divergence / No C4 retry.
+
+## ADDITIONAL CONTEXT (for different harness / future session)
+- Relevant design docs: `docs/reference/TAMANITOMO_REFERENCE.md`, `docs/reference/ADR_INDEX.md`, `docs/reference/OPEN_QUESTIONS.md`, `docs/design/ARCHITECTURE_MAP.md`, `docs/EVENT_CONTRACT.md`
+- Relevant source files: `src/core/events.py`, `src/core/dream/projection.py`, `src/core/presence/projection.py`, `src/core/dream/transaction.py`
+- Tamanitomo license: PolyForm Noncommercial 1.0.0 — reference only; no code reuse without separate legal review.
+- Safety reminder: The autonomous loop must stop if identity diverges, `.env` changes, secrets exposed, tests fail, Dream boundary collapses, event contract changes without documentation, or C4 mechanism triggers. This session preserved all safety conditions.
+
+---
+
 # SESSION HANDOFF — 2026-09-19 01:56 CDT (autonomous session — bounded M1-T3 + M1-T7 verified; M1-T4-M1-T6 deferred; framework allows future framework expansions; framework allows future framework expansions)
 
 Standard durable handoff format. Readable by any harness without access to this conversation.

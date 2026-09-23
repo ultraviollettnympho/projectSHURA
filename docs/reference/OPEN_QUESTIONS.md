@@ -54,6 +54,30 @@ Evidence: `docs/operations/HARNESS_INTEROPERABILITY.md` framework verified; harn
 Mitigation: Any ambiguity about harness interoperability framework must be documented in ADR index or open questions; framework must reference design framework; framework must include framework verification criteria.
 References: `docs/operations/HARNESS_INTEROPERABILITY.md`; `docs/design/ARCHITECTURE_MAP.md`; `docs/reference/ADR_INDEX.md`.
 
+### Q9: Provenance Vocabulary — When to Formalize?
+Status: PROPOSED (Tamanitomo-derived; see `docs/reference/TAMANITOMO_REFERENCE.md` Q9)
+Evidence: `docs/reference/TAMANITOMO_REFERENCE.md` section 6 Q9; current `BrainEvent.source` records producer but no epistemic status
+Mitigation: ADAPT — add provenance when memory architecture matures; do not add speculative schema now
+References: `docs/reference/TAMANITOMO_REFERENCE.md`, `docs/EVENT_CONTRACT.md`
+
+### Q10: Outbox Pattern — What Policy Gates?
+Status: PROPOSED (Tamanitomo-derived; see `docs/reference/TAMANITOMO_REFERENCE.md` Q10)
+Evidence: `docs/reference/TAMANITOMO_REFERENCE.md` section 6 Q10; no outbox in current architecture
+Mitigation: ADAPT — design outbox when proactive messaging is needed; not justified for current scope
+References: `docs/reference/TAMANITOMO_REFERENCE.md`, `src/core/expression.py`
+
+### Q11: Derived Values — Where to Enforce?
+Status: PROPOSED (Tamanitomo-derived; see `docs/reference/TAMANITOMO_REFERENCE.md` Q11)
+Evidence: `docs/reference/TAMANITOMO_REFERENCE.md` section 6 Q11; `BrainEvent.timestamp` canonical but derived values not enforced
+Mitigation: ADOPT principle; apply incrementally as subsystems mature
+References: `docs/reference/TAMANITOMO_REFERENCE.md`
+
+### Q12: Stale vs. Unknown — Sensor Integration Boundary?
+Status: PROPOSED (Tamanitomo-derived; see `docs/reference/TAMANITOMO_REFERENCE.md` Q12)
+Evidence: `docs/reference/TAMANITOMO_REFERENCE.md` section 6 Q12; `PresenceState` has `OFFLINE` but no `UNKNOWN` or `STALE`
+Mitigation: ADAPT — add when sensors are integrated; not currently justified
+References: `docs/reference/TAMANITOMO_REFERENCE.md`, `src/core/presence/runtime.py`
+
 ---
 
 ## Resolution Protocol

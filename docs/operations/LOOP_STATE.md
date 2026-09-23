@@ -96,6 +96,21 @@
 - Justification: [Dependencies satisfied; previous milestone verified; no identity/secret/boundary conflict; bounded change only]
 - Verification plan: [Specific test module or endpoint inspection; `python -m unittest` command; `git diff` inspection criteria]
 - Boundaries preserved: [Identity / Dream / Event / Projection / No secret / No identity divergence / No C4 retry]
+
+## M1-T10 TAMANITOMO KNOWLEDGE INTEGRATION (VERIFIED — 2026-09-22)
+- Task: Integrate Tamanitomo architectural lessons into durable ProjectSHURA institutional memory
+- Status: VERIFIED — documentation task completed
+- Evidence:
+  - `docs/reference/TAMANITOMO_REFERENCE.md` created (23,330 bytes) — full comparison matrix (18 patterns), 12 architectural principles (P1-P12), 4 rejected patterns (R1-R4), 4 open questions (Q9-Q12), license constraint recorded
+  - `docs/reference/ADR_INDEX.md` updated — ADR-002 added (Tamanitomo reference decision)
+  - `docs/reference/OPEN_QUESTIONS.md` updated — Q9-Q12 added (Tamanitomo-derived open questions)
+  - `docs/operations/LOOP_STATE.md` updated — this section
+  - `docs/operations/SESSION_HANDOFF.md` updated — this session recorded
+- Tests: 169 passing (full suite verified before changes)
+- Identity: `data/prompts/soul.md` unchanged; `.env` unchanged; `.hermes/config.yaml` unchanged
+- Boundary: No code changes; no Dream/event/projection boundary changes; no identity changes
+- Decisions: ADOPT (authoritative ledger, append-only, rules-in-code, identity mutability, SHURA≠Hermes, autonomy fingerprinting); ADAPT (provenance, outbox, stale/unknown, unconfirmed state); REFERENCE (Git-backed recovery); REJECT (multi-companion, Git auto-commit, vault as knowledge store, Tamanitomo presence loop)
+- License: Tamanitomo PolyForm Noncommercial 1.0.0 recorded; no source code copied
 ## CURRENT STATE OBSERVATIONS UPDATE (M1-T8 completed — factual)
 - Active milestone: Milestone 1 (Durable Autonomous Operating System)
 - Active phase: Phase 5 (Autonomous loop execution — M1-T8 bounded adapter completed)
