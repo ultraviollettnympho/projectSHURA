@@ -141,6 +141,7 @@ class Consciousness:
 
     async def run(self):
         while self.alive:
+            turn_run_id = None
             try:
                 idle = self.surfaces.get("idle")
                 if idle and idle.active:
@@ -241,15 +242,19 @@ class Consciousness:
                     )
                     text = (last.get("content") or "").strip()
                     if text and not spoke and self._correlations:
+                        resolved_any = False
                         for cid in list(self._batch_correlations):
                             c = self._correlations.get(cid)
                             if c and not c["future"].done() and c["route"] != "discord":
                                 c["future"].set_result({"mood": "normal", "message": text})
+                                self._correlations.pop(cid, None)
                                 self._batch_correlations.remove(cid)
-                                asyncio.create_task(self._speak_local_safe("normal", text))
-                                self.history.add_message("assistant", text, mood="normal", source="consciousness")
-                                self.events.publish(EventCategory.OUTPUT, "consciousness", text,
-                                                       metadata={"mood": "normal"})
+                                resolved_any = True
+                        if resolved_any:
+                            asyncio.create_task(self._speak_local_safe("normal", text))
+                            self.history.add_message("assistant", text, mood="normal", source="consciousness")
+                            self.events.publish(EventCategory.OUTPUT, "consciousness", text,
+                                                   metadata={"mood": "normal"})
 
                 self.events.publish(
                     EventCategory.AGENT, "agent.core",
@@ -270,7 +275,7 @@ class Consciousness:
                         "Agent turn failed",
                         event_type=AGENT_TURN_FAILED,
                         subsystem="agent",
-                        run_id=turn_run_id if 'turn_run_id' in locals() else None,
+                        run_id=turn_run_id,
                         payload={"error": str(e)},
                     )
                 except Exception:
@@ -409,6 +414,15 @@ class Consciousness:
             if asyncio.iscoroutine(result):
                 result = await result
         except asyncio.CancelledError:
+            self.events.publish(
+                EventCategory.TOOL, "agent.core",
+                f"Tool failed: {tool.name}",
+                event_type=TOOL_FAILED,
+                subsystem="agent",
+                run_id=tool_run_id,
+                parent_event_id=parent_started_event_id,
+                payload={"tool_name": tool.name, "error": "cancelled"},
+            )
             return
         except Exception as e:
             result = f"ERROR: {e}"

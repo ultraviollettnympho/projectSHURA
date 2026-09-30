@@ -224,13 +224,15 @@ class AIVtuberBrain:
 
         dream_run_id = getattr(self, "dream_run_id", None)
 
+        def _dream_projection(run_id: Optional[str] = None):
+            effective_run_id = run_id or dream_run_id
+            return get_current_dream_projection(self.event_manager, run_id=effective_run_id)
+
         projection = ForgeProjection(
             event_manager=self.event_manager,
             presence_runtime=self.presence,
             atlas_snapshot_fn=lambda: self.atlas_service.snapshot() if self.atlas_service else None,
-            dream_projection_fn=lambda: get_current_dream_projection(
-                self.event_manager, run_id=dream_run_id
-            ),
+            dream_projection_fn=_dream_projection,
             is_speaking=self.is_speaking,
             is_sleeping=self.is_sleeping,
         )

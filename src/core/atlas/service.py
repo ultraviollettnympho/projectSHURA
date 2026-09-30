@@ -99,24 +99,46 @@ class AtlasService:
             return
         try:
             data = self._repository.load()
+            # Use temporary registries — only assign if all records load successfully
+            temp_projects: Dict[str, Project] = {}
+            temp_work_items: Dict[str, WorkItem] = {}
+            temp_milestones: Dict[str, Milestone] = {}
+            temp_decisions: Dict[str, Decision] = {}
+            temp_artifacts: Dict[str, Artifact] = {}
+
             for p in data.projects:
-                proj = Project(**p)
-                self._projects[proj.project_id] = proj
+                # Filter to known dataclass fields to tolerate unknown keys
+                valid = {k: v for k, v in p.items() if k in Project.__dataclass_fields__}
+                proj = Project(**valid)
+                temp_projects[proj.project_id] = proj
             for wi in data.work_items:
-                item = WorkItem(**wi)
-                self._work_items[item.item_id] = item
+                valid = {k: v for k, v in wi.items() if k in WorkItem.__dataclass_fields__}
+                item = WorkItem(**valid)
+                temp_work_items[item.item_id] = item
             for ms in data.milestones:
-                milestone = Milestone(**ms)
-                self._milestones[milestone.milestone_id] = milestone
+                valid = {k: v for k, v in ms.items() if k in Milestone.__dataclass_fields__}
+                milestone = Milestone(**valid)
+                temp_milestones[milestone.milestone_id] = milestone
             for d in data.decisions:
-                decision = Decision(**d)
-                self._decisions[decision.decision_id] = decision
+                valid = {k: v for k, v in d.items() if k in Decision.__dataclass_fields__}
+                decision = Decision(**valid)
+                temp_decisions[decision.decision_id] = decision
             for a in data.artifacts:
-                artifact = Artifact(**a)
-                self._artifacts[artifact.artifact_id] = artifact
+                valid = {k: v for k, v in a.items() if k in Artifact.__dataclass_fields__}
+                artifact = Artifact(**valid)
+                temp_artifacts[artifact.artifact_id] = artifact
+
+            # All records loaded successfully — assign to service
+            self._projects = temp_projects
+            self._work_items = temp_work_items
+            self._milestones = temp_milestones
+            self._decisions = temp_decisions
+            self._artifacts = temp_artifacts
             self._active_project_id = data.active_project_id
         except Exception as e:
             logger.warning(f"ATLAS load from disk failed, starting fresh: {e}")
+            # Disable persistence to prevent overwriting the original file
+            self._persistent = False
 
     def _persist(self) -> None:
         """Write current domain state to the persistence file."""

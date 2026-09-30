@@ -195,18 +195,27 @@ class ForgeProjection:
                     "work_type": w.work_type,
                     "assigned_to": w.assigned_to,
                 }
-                for w in snap.work_items[-10:]
+                for w in (
+                    [w for w in snap.work_items if w.status in ("open", "in_progress", "blocked")]
+                    if snap.active_project_id
+                    else []
+                )[-10:]
             ]
-            state.active_milestones = [
-                {
-                    "milestone_id": m.milestone_id,
-                    "project_id": m.project_id,
-                    "name": m.name,
-                    "status": m.status,
-                    "order": m.order,
-                }
-                for m in snap.milestones if m.status != "completed"
-            ]
+            state.active_milestones = sorted(
+                [
+                    {
+                        "milestone_id": m.milestone_id,
+                        "project_id": m.project_id,
+                        "name": m.name,
+                        "status": m.status,
+                        "order": m.order,
+                    }
+                    for m in snap.milestones
+                    if m.status != "completed"
+                    and (not snap.active_project_id or m.project_id == snap.active_project_id)
+                ],
+                key=lambda m: m["order"],
+            )
             state.recent_decisions = [
                 {
                     "decision_id": d.decision_id,

@@ -55,7 +55,7 @@ def emit_dream_started(
         category=EventCategory.DREAM,
         source="dream_engine",
         message=f"Dream started: {run_id}",
-        event_type=EVENT_TYPE_LIFECYCLE,
+        event_type=EVENT_DREAM_STARTED,
         subsystem="dream",
         run_id=run_id,
         parent_event_id=parent_event_id,

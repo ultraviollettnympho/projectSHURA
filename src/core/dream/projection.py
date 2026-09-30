@@ -206,6 +206,9 @@ def build_projection(
 def get_current_dream_projection(
     event_manager: Optional[EventManager] = None,
     run_id: Optional[str] = None,
+    run: Optional[DreamRun] = None,
+    snapshot: Optional[DreamSnapshot] = None,
+    transaction: Optional[MemoryConsolidationTransaction] = None,
 ) -> DreamStateProjection:
     """Retrieve a projection for a given run_id using the current
     event manager (if available) and domain lookup. This function
@@ -215,19 +218,34 @@ def get_current_dream_projection(
     It does NOT create or modify DreamRun objects; it only reads
     via the domain interfaces already established (DreamSkill,
     event replay, or future domain registry interfaces).
+
+    When a DreamRun is provided (via the `run` parameter), the
+    projection is built from actual domain state using build_projection.
+    When no domain object is available, returns a minimal placeholder
+    projection with CREATED state (preserving the previous fallback
+    behavior for callers that cannot supply domain objects).
     """
-    if not run_id:
+    if not run_id and not run:
         return DreamStateProjection(
             run_id="unknown",
             run_state=DreamState.CREATED,
             replay_sequence_count=0,
         )
 
-    # Note: The projection layer does not import brain/consciousness
-    # or expression. Domain objects must be provided by the application
-    # service layer to preserve the architectural boundary.
+    # If a DreamRun was provided, build a proper projection from domain state
+    if run is not None:
+        return build_projection(
+            run=run,
+            snapshot=snapshot,
+            event_manager=event_manager,
+            transaction=transaction,
+        )
+
+    # Fallback: no domain object available — return minimal projection
+    # with the requested run_id. Callers that need real state should
+    # provide the run object.
     return DreamStateProjection(
-        run_id=run_id,
+        run_id=run_id or "unknown",
         run_state=DreamState.CREATED,
         replay_sequence_count=0,
     )

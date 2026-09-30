@@ -125,6 +125,12 @@ class WorkItem:
     completed_at: Optional[float] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
 
+    def update(self, **kwargs) -> None:
+        for k, v in kwargs.items():
+            if hasattr(self, k):
+                setattr(self, k, v)
+        self.updated_at = _now()
+
     def transition(self, new_status: str, **kwargs) -> None:
         self.status = new_status
         if new_status == WorkItemStatus.COMPLETED.value:

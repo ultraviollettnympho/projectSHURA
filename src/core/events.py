@@ -115,11 +115,23 @@ class EventJournal:
     def _rotate(self) -> None:
         """Bounded retention: truncate to the most recent half when overflowing."""
         events = self.read_all()
-        if len(events) > self.max_lines:
+        # Check both line count and file size independently
+        needs_rotation = (
+            len(events) > self.max_lines
+            or self._current_size() > self.max_size_bytes
+        )
+        if not needs_rotation:
+            return
+        # Continue rotating until both limits are satisfied
+        while len(events) > self.max_lines or self._current_size() > self.max_size_bytes:
             truncated = events[-self.max_lines // 2 :]
-            with open(self.path, "w", encoding="utf-8") as f:
+            # Write to temp file and atomically replace
+            temp_path = self.path.with_suffix(".tmp")
+            with open(temp_path, "w", encoding="utf-8") as f:
                 for ev in truncated:
                     f.write(json.dumps(ev, default=str, ensure_ascii=False) + "\n")
+            os.replace(temp_path, self.path)
+            events = self.read_all()
 
     def read_all(self) -> List[Dict[str, Any]]:
         events: List[Dict[str, Any]] = []
@@ -179,7 +191,6 @@ class EventManager:
         self.events: List[BrainEvent] = []
         self.max_history = max_history
         self._subscribers: List[Dict[str, Any]] = []
-        self._sequence = 0
         # Default journal location follows existing data conventions
         default_path = journal_path or "data/events/events.jsonl"
         self.journal = EventJournal(
@@ -187,6 +198,15 @@ class EventManager:
             max_size_bytes=max_size_bytes,
             max_lines=max_lines,
         )
+        # Initialize sequence from the highest existing journal entry
+        # so new events continue numbering after retained entries
+        self._sequence = 0
+        try:
+            existing = self.journal.read_all()
+            if existing:
+                self._sequence = max(e.get("sequence", 0) for e in existing)
+        except Exception:
+            pass
 
     # ------------------------------------------------------------------
     # Backward-compatible publish (existing callers unchanged)
@@ -333,6 +353,7 @@ class EventManager:
 
     def _to_dict(self, event: BrainEvent) -> Dict[str, Any]:
         return {
+            "id": event.id,
             "event_id": event.id,
             "timestamp": event.timestamp,
             "sequence": event.sequence,

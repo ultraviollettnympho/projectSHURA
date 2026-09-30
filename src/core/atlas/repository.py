@@ -115,6 +115,7 @@ class AtlasRepository:
 
         Returns empty state if the file does not exist (first run).
         Returns empty state with a warning if the file is corrupted.
+        Preserves the corrupt file by renaming to .corrupt for debugging.
         """
         if not self._state_file.exists():
             return AtlasData()
@@ -125,24 +126,41 @@ class AtlasRepository:
             return AtlasData.from_dict(data)
         except (json.JSONDecodeError, OSError) as e:
             logger.warning(f"ATLAS state file corrupted, starting fresh: {e}")
+            # Preserve the corrupt file for debugging
+            try:
+                corrupt_path = self._state_file.with_suffix(".corrupt")
+                os.replace(self._state_file, corrupt_path)
+                logger.warning(f"Corrupt state file preserved at: {corrupt_path}")
+            except OSError:
+                pass
             return AtlasData()
 
     def save(self, data: AtlasData) -> None:
         """Persist ATLAS state to disk.
 
         Creates the storage directory if it does not exist.
-        Overwrites the existing state file atomically (write-to-temp-then-rename
-        would be more robust but adds complexity; the current approach is
-        sufficient for single-process use).
+        Writes to a temporary file first, then atomically replaces the
+        state file with os.replace for crash safety.
         """
+        temp_path = None
         try:
             self._storage_path.mkdir(parents=True, exist_ok=True)
-            self._state_file.write_text(
-                json.dumps(data.to_dict(), indent=2, ensure_ascii=False),
-                encoding="utf-8",
-            )
+            temp_path = self._state_file.with_suffix(".tmp")
+            content = json.dumps(data.to_dict(), indent=2, ensure_ascii=False)
+            with open(temp_path, "w", encoding="utf-8") as f:
+                f.write(content)
+                f.flush()
+                os.fsync(f.fileno())
+            os.replace(temp_path, self._state_file)
         except OSError as e:
             logger.error(f"ATLAS state save failed: {e}")
+            # Clean up temp file on failure
+            if temp_path is not None:
+                try:
+                    if temp_path.exists():
+                        temp_path.unlink()
+                except OSError:
+                    pass
             raise
 
     def clear(self) -> None:
