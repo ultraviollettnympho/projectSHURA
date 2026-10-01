@@ -24,20 +24,27 @@ class Drive:
     satisfaction: float = 0.0   # accumulated satisfaction of last action
     decay_rate: float = 0.05    # baseline decay/sec toward neutral
     homeostasis: float = 0.2    # neutral target pressure
+    frustration: float = 0.0    # accumulated un-met pressure (conflict signal)
     last_update: float = field(default_factory=time.time)
     candidate_actions: List[str] = field(default_factory=list)
     sources: List[str] = field(default_factory=list)
 
     def tick(self, dt: float) -> None:
-        """Decay pressure toward homeostasis."""
+        """Decay pressure toward homeostasis; frustration decays slowly."""
         self.pressure = self.homeostasis + (self.pressure - self.homeostasis) * math.exp(-self.decay_rate * dt)
         self.pressure = max(0.0, min(1.0, self.pressure))
         self.activation = max(0.0, self.activation - 0.1 * dt)
+        # frustration decays toward 0 when unobserved
+        self.frustration = max(0.0, self.frustration - 0.05 * dt)
         self.last_update = time.time()
 
     def update(self, delta: float, cause: str = "") -> float:
         before = self.pressure
-        self.pressure = max(0.0, min(1.0, self.pressure + delta))
+        new_pressure = max(0.0, min(1.0, self.pressure + delta))
+        # frustration rises when pressure is blocked from increasing (saturation)
+        if delta > 0 and new_pressure >= 1.0 and self.pressure < 1.0:
+            self.frustration = min(1.0, self.frustration + abs(delta))
+        self.pressure = new_pressure
         self.activation = max(self.activation, self.pressure)
         if cause:
             self.sources.append(cause)

@@ -98,9 +98,10 @@ class TestAffectiveContracts(unittest.TestCase):
         self.assertEqual(_RANGES["valence"], (-1.0, 1.0))
         for name in _DIMENSIONS:
             lo, hi = _RANGES[name]
-            self.assertEqual((lo, hi), (0.0, 1.0)) if name != "valence" else None
-            if name != "valence":
-                self.assertEqual(_RANGES[name], (0.0, 1.0))
+            if name == "valence":
+                self.assertEqual((lo, hi), (-1.0, 1.0))
+            else:
+                self.assertEqual((lo, hi), (0.0, 1.0))
 
     def test_response_strategy_keys_and_ranges(self):
         d = tempfile.mkdtemp(); arc, _ = _arc(d, "rs0")
@@ -325,18 +326,33 @@ class TestExperimentContracts(unittest.TestCase):
 
     def test_ablation_harness_runs_with_and_without(self):
         d = tempfile.mkdtemp()
+        counter = [0]
         def factory():
-            return ShuraARC(store=ArcEventStore(path=os.path.join(d, f"a_{id(factory)}.jsonl"),
-                                                session_id="ab"), session_id="ab")
+            counter[0] += 1
+            sd = os.path.join(d, f"run{counter[0]}")
+            os.makedirs(sd, exist_ok=True)
+            st = ArcEventStore(path=os.path.join(sd, "arc.jsonl"), session_id="ab")
+            return ShuraARC(store=st, session_id="ab")
         def task(arc):
-            arc.experience(EVENT_TYPE_EXPERIENCE, {"content": "decision context"})
-            return arc.evaluate_and_decide("pick", [{"label": "red", "tags": []},
-                                                    {"label": "blue", "tags": []}])
+            # establish positive affective history (valence rises above 0)
+            for _ in range(5):
+                arc.experience(EVENT_TYPE_EXPERIENCE, {"content": "success achieved"})
+            opts = [{"label": "complete", "tags": ["completion"]},
+                    {"label": "explore", "tags": ["exploration"]}]
+            return arc.evaluate_and_decide("pick", opts)
+        def measure(res):
+            return 1.0 if res.decision == "explore" else 0.0
         ledger = ResearchLedger()
-        res = AblationHarness(ledger=ledger).run(
-            "affect", task, lambda r: 1.0 if r.decision == "blue" else 0.0, factory)
+        res = AblationHarness(ledger=ledger).run("affect", task, measure, factory)
         self.assertIsNotNone(res.with_result)
         self.assertIsNotNone(res.without_result)
+        self.assertEqual(res.mechanism, "affect")
+        # affect ON (positive valence -> risk-seeking) should favor "explore";
+        # affect OFF (neutral) should fall back to the first/default option.
+        self.assertEqual(measure(res.with_result), 1.0)
+        self.assertEqual(measure(res.without_result), 0.0)
+        self.assertTrue(res.significant,
+                        "harness failed to detect the causal affect channel")
 
 
 # ─────────────────────────────────────────────────────────────────────────
