@@ -1,0 +1,18 @@
+{
+  "event_id": "slice-test-001",
+  "schema_version": 1,
+  "provenance": {
+    "source": "fixture",
+    "actor": "system",
+    "confidence": 1.0,
+    "trust_level": "verified",
+    "origin_session": "slice-test-session",
+    "origin_event_id": null
+  },
+  "identity_independent": true,
+  "presence_projected": {
+    "agent_active": true,
+    "expression": "attentive"
+  },
+  "evidence_source": "tests/test_vertical_slice.py"
+}

@@ -1,0 +1,38 @@
+{
+  "results": [
+    {
+      "label": "A (neg-on)",
+      "decision": "refine current loop",
+      "valence": -1.0
+    },
+    {
+      "label": "B (neg-off)",
+      "decision": "experiment with distortion",
+      "valence": 0.0
+    },
+    {
+      "label": "C (pos-on)",
+      "decision": "experiment with distortion",
+      "valence": 1.0
+    },
+    {
+      "label": "D (neutral-on)",
+      "decision": "document workflow",
+      "valence": 0.08
+    },
+    {
+      "label": "E (mixed-on)",
+      "decision": "document workflow",
+      "valence": -0.2398
+    }
+  ],
+  "causal_influence_detected": true,
+  "conditions": [
+    "A (neg-on)",
+    "B (neg-off)",
+    "C (pos-on)",
+    "D (neutral-on)",
+    "E (mixed-on)"
+  ],
+  "step": "04B"
+}

@@ -1,0 +1,569 @@
+{
+  "version": "04B",
+  "inspection_note": "Built by inspecting actual src/arc/ source at session time; NOT inferred from docs.",
+  "modules": {
+    "arc": {
+      "path": "src/arc/__init__.py",
+      "public_classes": [],
+      "class_methods": {},
+      "public_functions": [],
+      "public_constants": [],
+      "exports_from_all": [
+        "AblationHarness",
+        "AblationResult",
+        "ActionProposal",
+        "ArcEvent",
+        "ArcEventStore",
+        "AuthorityTier",
+        "ChangeProposal",
+        "CognitiveProvider",
+        "CognitiveState",
+        "CoherenceMonitor",
+        "CoherenceSignals",
+        "Contradiction",
+        "ContradictionRegistry",
+        "EVENT_TYPE_ACTION",
+        "EVENT_TYPE_COHERENCE",
+        "EVENT_TYPE_CONTRADICTION",
+        "EVENT_TYPE_DECIDED",
+        "EVENT_TYPE_EXPERIENCE",
+        "EVENT_TYPE_IDENTITY_CHANGE_APPLIED",
+        "EVENT_TYPE_IDENTITY_CHANGE_PROPOSED",
+        "EVENT_TYPE_IDENTITY_LOADED",
+        "EVENT_TYPE_MEMORY_RECORDED",
+        "EVENT_TYPE_OBSERVATION",
+        "EVENT_TYPE_SELFMODEL_CLAIM",
+        "EVENT_TYPE_SELFMODEL_UPDATE",
+        "EVENT_TYPE_STATE",
+        "EchoCognitiveProvider",
+        "GovernanceController",
+        "Identity",
+        "IdentityGovernance",
+        "MemoryIndex",
+        "MemoryKind",
+        "MemoryRecord",
+        "Observation",
+        "Observer",
+        "ProvenanceRecord",
+        "ReadFacade",
+        "ResearchLedger",
+        "SCHEMA_VERSION",
+        "SelfModel",
+        "ShuraARC",
+        "StubCognitiveProvider"
+      ]
+    },
+    "coherence": {
+      "path": "src/arc/coherence.py",
+      "public_classes": [
+        "CoherenceMonitor",
+        "CoherenceSignals"
+      ],
+      "class_methods": {
+        "CoherenceMonitor": [
+          "assess"
+        ],
+        "CoherenceSignals": []
+      },
+      "public_functions": [],
+      "public_constants": [],
+      "exports_from_all": []
+    },
+    "identity": {
+      "path": "src/arc/identity.py",
+      "public_classes": [
+        "ChangeProposal",
+        "Identity",
+        "IdentityGovernance"
+      ],
+      "class_methods": {
+        "ChangeProposal": [],
+        "Identity": [
+          "fingerprint",
+          "from_text",
+          "load"
+        ],
+        "IdentityGovernance": [
+          "accept",
+          "propose_change"
+        ]
+      },
+      "public_functions": [],
+      "public_constants": [
+        "_FALLBACK_IDENTITY"
+      ],
+      "exports_from_all": []
+    },
+    "observation": {
+      "path": "src/arc/observation.py",
+      "public_classes": [
+        "Observation",
+        "Observer",
+        "ReadFacade"
+      ],
+      "class_methods": {
+        "Observation": [],
+        "Observer": [
+          "observe_all"
+        ],
+        "ReadFacade": [
+          "events",
+          "identity_fingerprint",
+          "identity_hash",
+          "replay",
+          "self_model",
+          "sequence",
+          "session_id"
+        ]
+      },
+      "public_functions": [],
+      "public_constants": [],
+      "exports_from_all": []
+    },
+    "provider": {
+      "path": "src/arc/provider.py",
+      "public_classes": [
+        "CognitiveProvider",
+        "EchoCognitiveProvider",
+        "StubCognitiveProvider"
+      ],
+      "class_methods": {
+        "CognitiveProvider": [
+          "complete",
+          "name"
+        ],
+        "EchoCognitiveProvider": [
+          "complete",
+          "name"
+        ],
+        "StubCognitiveProvider": [
+          "complete",
+          "name"
+        ]
+      },
+      "public_functions": [],
+      "public_constants": [],
+      "exports_from_all": []
+    },
+    "runtime": {
+      "path": "src/arc/runtime.py",
+      "public_classes": [
+        "ActionProposal",
+        "ShuraARC"
+      ],
+      "class_methods": {
+        "ActionProposal": [],
+        "ShuraARC": [
+          "apply_decay",
+          "coherence_signals",
+          "consolidate",
+          "cross_channel_affect",
+          "decide",
+          "detect_drift",
+          "evaluate_and_decide",
+          "experience",
+          "inspect",
+          "observe",
+          "reconstruct",
+          "retrieve",
+          "sense",
+          "start",
+          "toggle_feature"
+        ]
+      },
+      "public_functions": [],
+      "public_constants": [],
+      "exports_from_all": []
+    },
+    "self_model": {
+      "path": "src/arc/self_model.py",
+      "public_classes": [
+        "SelfModel"
+      ],
+      "class_methods": {
+        "SelfModel": [
+          "as_dict",
+          "claim",
+          "divergence_report",
+          "invalidate_cache",
+          "observe",
+          "record_capability",
+          "record_failure",
+          "record_goal",
+          "record_success",
+          "state"
+        ]
+      },
+      "public_functions": [],
+      "public_constants": [],
+      "exports_from_all": []
+    },
+    "state": {
+      "path": "src/arc/state.py",
+      "public_classes": [
+        "CognitiveState"
+      ],
+      "class_methods": {
+        "CognitiveState": [
+          "equals_snapshot",
+          "snapshot",
+          "to_dict"
+        ]
+      },
+      "public_functions": [],
+      "public_constants": [],
+      "exports_from_all": []
+    },
+    "decay.__init__": {
+      "path": "src/arc/decay/__init__.py",
+      "public_classes": [],
+      "class_methods": {},
+      "public_functions": [],
+      "public_constants": [],
+      "exports_from_all": []
+    },
+    "decay.engine": {
+      "path": "src/arc/decay/engine.py",
+      "public_classes": [
+        "DecayFactors",
+        "MemoryDecay"
+      ],
+      "class_methods": {
+        "DecayFactors": [],
+        "MemoryDecay": [
+          "apply",
+          "score"
+        ]
+      },
+      "public_functions": [],
+      "public_constants": [],
+      "exports_from_all": []
+    },
+    "attention.__init__": {
+      "path": "src/arc/attention/__init__.py",
+      "public_classes": [],
+      "class_methods": {},
+      "public_functions": [],
+      "public_constants": [],
+      "exports_from_all": []
+    },
+    "attention.salience": {
+      "path": "src/arc/attention/salience.py",
+      "public_classes": [
+        "SalienceEngine",
+        "SalienceFactors"
+      ],
+      "class_methods": {
+        "SalienceEngine": [
+          "score_memory"
+        ],
+        "SalienceFactors": [
+          "to_dict"
+        ]
+      },
+      "public_functions": [],
+      "public_constants": [],
+      "exports_from_all": []
+    },
+    "memory.__init__": {
+      "path": "src/arc/memory/__init__.py",
+      "public_classes": [],
+      "class_methods": {},
+      "public_functions": [],
+      "public_constants": [],
+      "exports_from_all": []
+    },
+    "memory.layers": {
+      "path": "src/arc/memory/layers.py",
+      "public_classes": [
+        "Contradiction",
+        "ContradictionRegistry",
+        "MemoryIndex",
+        "MemoryKind",
+        "MemoryRecord"
+      ],
+      "class_methods": {
+        "Contradiction": [],
+        "ContradictionRegistry": [
+          "register",
+          "unresolved"
+        ],
+        "MemoryIndex": [
+          "by_kind",
+          "index_events",
+          "recent",
+          "retrieve",
+          "search"
+        ],
+        "MemoryKind": [],
+        "MemoryRecord": [
+          "to_dict"
+        ]
+      },
+      "public_functions": [],
+      "public_constants": [],
+      "exports_from_all": []
+    },
+    "drives.__init__": {
+      "path": "src/arc/drives/__init__.py",
+      "public_classes": [],
+      "class_methods": {},
+      "public_functions": [],
+      "public_constants": [],
+      "exports_from_all": []
+    },
+    "drives.drive_system": {
+      "path": "src/arc/drives/drive_system.py",
+      "public_classes": [
+        "Drive",
+        "DriveSystem"
+      ],
+      "class_methods": {
+        "Drive": [
+          "sate",
+          "tick",
+          "update"
+        ],
+        "DriveSystem": [
+          "active_drives",
+          "conflict",
+          "pressures",
+          "tick",
+          "to_dict",
+          "update_from_event"
+        ]
+      },
+      "public_functions": [],
+      "public_constants": [],
+      "exports_from_all": []
+    },
+    "multiscale.__init__": {
+      "path": "src/arc/multiscale/__init__.py",
+      "public_classes": [],
+      "class_methods": {},
+      "public_functions": [],
+      "public_constants": [],
+      "exports_from_all": []
+    },
+    "multiscale.scheduler": {
+      "path": "src/arc/multiscale/scheduler.py",
+      "public_classes": [
+        "MultiscaleScheduler",
+        "ScheduledAction",
+        "Timescale"
+      ],
+      "class_methods": {
+        "MultiscaleScheduler": [
+          "drain",
+          "schedule",
+          "status"
+        ],
+        "ScheduledAction": [],
+        "Timescale": []
+      },
+      "public_functions": [],
+      "public_constants": [],
+      "exports_from_all": []
+    },
+    "action.__init__": {
+      "path": "src/arc/action/__init__.py",
+      "public_classes": [],
+      "class_methods": {},
+      "public_functions": [],
+      "public_constants": [],
+      "exports_from_all": []
+    },
+    "action.arbitrator": {
+      "path": "src/arc/action/arbitrator.py",
+      "public_classes": [
+        "ActionArbitrator",
+        "ActionCandidate",
+        "ArbitrationRecord"
+      ],
+      "class_methods": {
+        "ActionArbitrator": [
+          "propose"
+        ],
+        "ActionCandidate": [],
+        "ArbitrationRecord": []
+      },
+      "public_functions": [],
+      "public_constants": [],
+      "exports_from_all": []
+    },
+    "governance.__init__": {
+      "path": "src/arc/governance/__init__.py",
+      "public_classes": [],
+      "class_methods": {},
+      "public_functions": [],
+      "public_constants": [],
+      "exports_from_all": []
+    },
+    "governance.authority": {
+      "path": "src/arc/governance/authority.py",
+      "public_classes": [
+        "AuthorityTier",
+        "GovernanceController"
+      ],
+      "class_methods": {
+        "AuthorityTier": [],
+        "GovernanceController": [
+          "authorized",
+          "can_modify_canonical",
+          "can_modify_identity",
+          "to_dict"
+        ]
+      },
+      "public_functions": [],
+      "public_constants": [
+        "_CANONICAL_WRITERS"
+      ],
+      "exports_from_all": []
+    },
+    "experiment.__init__": {
+      "path": "src/arc/experiment/__init__.py",
+      "public_classes": [],
+      "class_methods": {},
+      "public_functions": [],
+      "public_constants": [],
+      "exports_from_all": []
+    },
+    "experiment.harness": {
+      "path": "src/arc/experiment/harness.py",
+      "public_classes": [
+        "AblationHarness",
+        "AblationResult",
+        "ResearchLedger"
+      ],
+      "class_methods": {
+        "AblationHarness": [
+          "run"
+        ],
+        "AblationResult": [],
+        "ResearchLedger": [
+          "record",
+          "summary"
+        ]
+      },
+      "public_functions": [],
+      "public_constants": [],
+      "exports_from_all": []
+    },
+    "events.__init__": {
+      "path": "src/arc/events/__init__.py",
+      "public_classes": [],
+      "class_methods": {},
+      "public_functions": [],
+      "public_constants": [],
+      "exports_from_all": []
+    },
+    "events.canonical": {
+      "path": "src/arc/events/canonical.py",
+      "public_classes": [
+        "ArcEvent",
+        "ArcEventStore",
+        "ProvenanceRecord"
+      ],
+      "class_methods": {
+        "ArcEvent": [
+          "to_dict"
+        ],
+        "ArcEventStore": [
+          "append",
+          "read_all",
+          "read_text",
+          "replay",
+          "restore_snapshot",
+          "snapshot"
+        ],
+        "ProvenanceRecord": [
+          "to_dict"
+        ]
+      },
+      "public_functions": [],
+      "public_constants": [
+        "EVENT_TYPE_ACTION",
+        "EVENT_TYPE_COHERENCE",
+        "EVENT_TYPE_CONTRADICTION",
+        "EVENT_TYPE_DECIDED",
+        "EVENT_TYPE_EXPERIENCE",
+        "EVENT_TYPE_IDENTITY_CHANGE_APPLIED",
+        "EVENT_TYPE_IDENTITY_CHANGE_PROPOSED",
+        "EVENT_TYPE_IDENTITY_LOADED",
+        "EVENT_TYPE_MEMORY_RECORDED",
+        "EVENT_TYPE_OBSERVATION",
+        "EVENT_TYPE_SELFMODEL_CLAIM",
+        "EVENT_TYPE_SELFMODEL_UPDATE",
+        "EVENT_TYPE_STATE",
+        "SCHEMA_VERSION",
+        "VALID_TRUST_LEVELS"
+      ],
+      "exports_from_all": []
+    },
+    "consolidation.__init__": {
+      "path": "src/arc/consolidation/__init__.py",
+      "public_classes": [],
+      "class_methods": {},
+      "public_functions": [],
+      "public_constants": [],
+      "exports_from_all": []
+    },
+    "consolidation.engine": {
+      "path": "src/arc/consolidation/engine.py",
+      "public_classes": [
+        "ConsolidationEngine",
+        "ConsolidationResult"
+      ],
+      "class_methods": {
+        "ConsolidationEngine": [
+          "run"
+        ],
+        "ConsolidationResult": []
+      },
+      "public_functions": [],
+      "public_constants": [],
+      "exports_from_all": []
+    },
+    "affect.__init__": {
+      "path": "src/arc/affect/__init__.py",
+      "public_classes": [],
+      "class_methods": {},
+      "public_functions": [],
+      "public_constants": [],
+      "exports_from_all": []
+    },
+    "affect.affective_state": {
+      "path": "src/arc/affect/affective_state.py",
+      "public_classes": [
+        "ArcAffectiveState",
+        "Dimension"
+      ],
+      "class_methods": {
+        "ArcAffectiveState": [
+          "current",
+          "rates",
+          "response_strategy",
+          "retrieval_boost",
+          "tick",
+          "to_dict",
+          "uncertainty",
+          "update_from_event",
+          "valence"
+        ],
+        "Dimension": [
+          "bump",
+          "decay",
+          "to_dict"
+        ]
+      },
+      "public_functions": [],
+      "public_constants": [
+        "_BASELINE",
+        "_DECAY",
+        "_DIMENSIONS",
+        "_RANGES"
+      ],
+      "exports_from_all": []
+    }
+  }
+}

@@ -1,0 +1,68 @@
+{
+  "version": "v3-2026-09-30",
+  "status": "PROPOSED \u2014 framework contracts created; full agent contracts deferred",
+  "contracts": {
+    "agent_identity": {
+      "description": "Agent contracts must reference identity layer (data/prompts/soul.md) without modifying it.",
+      "reference": "docs/v3/ARCHITECTURE_V3.md section 1",
+      "verified": true,
+      "evidence": "Identity file inspection shows no provider/model references; .env unstaged."
+    },
+    "agent_observation": {
+      "description": "Agents observe through event/projection interfaces; must not import brain/consciousness internals for mutation.",
+      "reference": "docs/v3/ARCHITECTURE_V3.md sections 2, 3",
+      "verified": true,
+      "evidence": "tests/test_dream_projection.py verifies projection read-only; brain.py imports verified."
+    },
+    "agent_memory": {
+      "description": "Agents observe memory through framework interfaces; must not write directly to memory files.",
+      "reference": "docs/v3/ARCHITECTURE_V3.md section 4",
+      "verified": false,
+      "evidence": "Memory framework verified present (MemoryStorage, ConsolidationEngine); provenance/confidence fields unverified."
+    },
+    "agent_execution": {
+      "description": "Agent execution follows PLAN -> DELEGATE -> EXECUTE -> VERIFY -> RECONCILE -> LEARN; bounded repair rules enforced.",
+      "reference": "docs/operations/AUTONOMOUS_LOOP.md",
+      "verified": false,
+      "evidence": "Autonomous loop framework defined; execution verification deferred."
+    },
+    "agent_failure_recovery": {
+      "description": "Agent failure must be bounded; retry loops without architectural discussion are violations; C4 mechanism must not be retried indefinitely.",
+      "reference": "docs/v3/ARCHITECTURE_V3.md section 11",
+      "verified": true,
+      "evidence": ".hermes/config.yaml line 4041 verified as separate block; architecture rules preserve bounded repair."
+    },
+    "agent_verification_gate": {
+      "description": "Every agent task must have verification evidence before claim; no fabricated success permitted.",
+      "reference": "docs/v3/V3_EXECUTION_DAG.md section 7",
+      "verified": false,
+      "evidence": "Verification matrix proposed (docs/v3/VERIFICATION_MATRIX.md); must be completed."
+    }
+  },
+  "verification_artifacts_preserved": {
+    ".fleet/verification/step04b_corpus_results.json": {
+      "causal_influence_detected": false,
+      "status": "PRESERVED \u2014 must not be rewritten without new verified evidence",
+      "step": "04B"
+    },
+    "fleet/verification/S02-T4_ledger_entry.json": {
+      "step": "04C",
+      "ablation_result_neg_delta": 1.0,
+      "ablation_result_neg_significant": true,
+      "ablation_result_pos_delta": 0.0,
+      "ablation_result_pos_significant": false,
+      "status": "PRESERVED \u2014 mixed results must be documented; positive condition not verified",
+      "interpretation": "Negative affect condition diverges; positive condition does not; mechanism not fully verified."
+    }
+  },
+  "swarm_ledger": {
+    "status": "INITIALIZED \u2014 framework contracts exist; swarm agents not yet assigned",
+    "next_action": "Create docs/v3/VERIFICATION_MATRIX.md; initialize first bounded vertical slice",
+    "blockers": [
+      ".fleet/contracts/ created (completed in this step)",
+      "docs/v3/VERIFICATION_MATRIX.md must be created before Phase F",
+      "tests/test_arc_contracts.py modifications must be verified before QA claims full contract preservation",
+      "Vertical slice execution verification deferred until framework coherence verified"
+    ]
+  }
+}

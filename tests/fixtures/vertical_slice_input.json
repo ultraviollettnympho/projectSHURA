@@ -1,0 +1,24 @@
+{
+  "event_id": "slice-test-001",
+  "timestamp": 1790839638.220654,
+  "source": "vertical_slice_fixture",
+  "actor": "system",
+  "event_type": "state",
+  "payload": {
+    "action": "vertical_slice_input",
+    "intent": "demonstrate_canonical_event_pipeline"
+  },
+  "provenance": {
+    "source": "fixture",
+    "actor": "system",
+    "confidence": 1.0,
+    "trust_level": "verified",
+    "origin_session": "slice-test-session",
+    "origin_event_id": null
+  },
+  "confidence": 1.0,
+  "causal_parent": null,
+  "session_context_id": "slice-test-session",
+  "schema_version": 1,
+  "sequence": 1
+}

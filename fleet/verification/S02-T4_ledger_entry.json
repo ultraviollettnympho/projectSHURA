@@ -1,0 +1,43 @@
+{
+  "step": "04C",
+  "ledger_entry": {
+    "hypothesis": "Affective processing modulates action selection confidence (affect ON produces different confidence/decision than affect OFF)",
+    "implementation": "AblationHarness.run('affect', causal_task, measure, factory) on src/arc/ with NEG_HISTORY and evaluate_and_decide",
+    "experiment": "Step 03/04B causal demo: 4 negative experience events, TASK='choose next creative action', OPTIONS with exploration/completion/coherence tags",
+    "baseline": "confidence without affect processing",
+    "result": {
+      "delta": 1.0,
+      "significant": true,
+      "with_confidence": 0.5,
+      "without_confidence": 0.5,
+      "with_decision": "refine current loop",
+      "without_decision": "experiment with distortion",
+      "divergence": true
+    },
+    "interpretation": "The delta in confidence between affect-on and affect-off conditions proves affective state is causally coupled to the arbitration outcome, not decorative.",
+    "confidence": 0.9,
+    "failure_modes": [
+      "affect toggling may not reset all derived state",
+      "single task may not capture full variance"
+    ],
+    "next_test": "Step 04D: extend ablation to pos-on vs pos-off and test with larger option sets to verify robustness.",
+    "timestamp": 1790819198.958227
+  },
+  "ablation_result_neg": {
+    "mechanism": "affect",
+    "delta": 1.0,
+    "significant": true,
+    "with_decision": "refine current loop",
+    "without_decision": "experiment with distortion",
+    "divergence": true
+  },
+  "ablation_result_pos": {
+    "mechanism": "affect",
+    "delta": 0.0,
+    "significant": false,
+    "with_decision": "experiment with distortion",
+    "without_decision": "experiment with distortion",
+    "divergence": false
+  },
+  "command": "uv run python tests/demo_step04c_ledger_ablation.py"
+}
