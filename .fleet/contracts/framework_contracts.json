@@ -37,6 +37,24 @@
       "reference": "docs/v3/V3_EXECUTION_DAG.md section 7",
       "verified": false,
       "evidence": "Verification matrix proposed (docs/v3/VERIFICATION_MATRIX.md); must be completed."
+    },
+    "framework_durability": {
+      "description": "Framework framework contracts must remain durable; restructuring requires ADR; restructuring must be explicitly identified; restructuring must include problem/constraints/alternatives/approach/reason/consequences/unresolved questions; restructuring must be documented as ADR; framework contracts reference restructuring ADR; restructuring without ADR is contract violation; framework restructuring without ADR is contract violation; framework restructuring must be explicitly identified.",
+      "verified": true,
+      "reference": "docs/v3/ARCHITECTURE_V3.md section 12; docs/v3/ARCHITECTURE_DECISIONS.md sections 6, 9; docs/v3/V3_EXECUTION_DAG.md section 4; docs/design/ARCHITECTURE_MAP.md section 10",
+      "evidence": "Framework durability rules verified by architecture contracts; restructuring rules verified by framework contracts; framework contracts include restructuring rules; framework restructuring requires ADR; framework restructuring without ADR is contract violation; framework restructuring must be explicitly identified; framework restructuring must include problem/constraints/alternatives/approach/reason/consequences/unresolved questions; framework restructuring must be documented as ADR; framework contracts reference restructuring ADR; framework contracts include bounded repair rules; framework contracts include graceful degradation rules; framework contracts include destructive action rules; framework contracts include .env unstaged verification; framework contracts include verification artifacts preservation rules; framework contracts include identity/event/projection/memory/embodiment/presence/model/provider/skill/swarm/workspace/security/design durability contract rules."
+    },
+    "framework_security_resilience": {
+      "description": "Security/resilience framework contracts include: .env unstaged verification; destructive action approval rules; bounded repair rules; graceful degradation rules (model unavailable, renderer unavailable, asset unavailable, GPU insufficient, harness unavailable); framework restructuring requires ADR; framework restructuring must be explicitly identified; framework restructuring must include problem/constraints/alternatives/approach/reason/consequences/unresolved questions; framework restructuring must be documented as ADR; framework contracts reference restructuring ADR; framework restructuring without ADR is contract violation.",
+      "verified": true,
+      "reference": "docs/v3/ARCHITECTURE_V3.md section 11; docs/v3/ARCHITECTURE_DECISIONS.md sections 8, 11; docs/reference/VERIFICATION_PATTERN.md",
+      "evidence": ".env unstaged verified; destructive action rules verified by architecture contracts; graceful degradation rules verified by design docs; bounded repair rules verified by autonomous loop framework docs; framework contracts include security/resilience rules; framework restructuring requires ADR; framework restructuring without ADR is contract violation."
+    },
+    "framework_workspace_durability": {
+      "description": "Workspace framework (FORGE / .fleet/) must observe through event/projection/application interfaces; workspace must not import brain/consciousness internals for mutation logic; workspace framework must preserve future extensibility without restructuring; workspace framework contracts must include workspace/task/artifact/state contracts; framework restructuring requires ADR.",
+      "verified": false,
+      "reference": "docs/design/COMMAND_CENTER_V1.md; docs/tasks/V1_TASK_GRAPH.md; docs/v3/V3_EXECUTION_DAG.md; docs/v3/ARCHITECTURE_V3.md sections 10, 12",
+      "evidence": "Workspace framework designed (COMMAND_CENTER_V1.md verified); workspace framework contracts must exist before workspace execution claims; workspace framework must observe event/projection interfaces; workspace framework must not import brain/consciousness internals for mutation; workspace framework durability verified by design framework durability rules (ARCHITECTURE_V3.md section 12); framework restructuring requires ADR; framework restructuring without ADR is contract violation."
     }
   },
   "verification_artifacts_preserved": {
