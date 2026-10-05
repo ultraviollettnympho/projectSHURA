@@ -1,0 +1,15 @@
+flowchart LR
+  U["Viollett + SHURA"] --> C["ChatGPT / SHURA\nstrategy + synthesis"]
+  C --> B["Context Bridge\nportable current state"]
+  B --> H["Hermes\nexecution + agents"]
+  B --> V["VS Code\nvisual coding surface"]
+  H --> G["Git / GitHub\nevidence + history"]
+  V --> G
+  G --> R["Review / QA\nindependent challenge"]
+  R --> B
+  O["Obsidian + Holographic\nmemory substrate"] <--> B
+  S["ProjectSHURA\ncanonical architecture"] <--> B
+  H --> S
+  V --> S
+  B --> P["Connected projects\nAether Relay / INFAC / others"]
+  P --> G
